@@ -17,7 +17,7 @@ pub fn convert_file(markdown_path: &Path, output_dir: Option<&Path>, options: &O
     let body_content = indent_html(&html_output, 4);
 
     let full_html = format!(
-        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n{}\n</head>\n<body>\n{}</body>\n</html>",
+        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n{}\n</head>\n<body>\n{}</body>\n</html>\n",
         head_content,
         body_content
     );
