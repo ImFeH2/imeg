@@ -46,7 +46,7 @@ fn main() -> Result<(), ConversionError> {
         return Ok(());
     }
 
-    let mut options = markdown::Options::default();
+    let mut options = markdown::Options::gfm();
     options.compile.allow_dangerous_html = true;
     options.compile.allow_dangerous_protocol = true;
 
@@ -80,25 +80,51 @@ fn markdown_paths(dir: &str) -> Result<Vec<PathBuf>, ConversionError> {
     Ok(paths)
 }
 
+fn indent_html(html: &str, base_indent: usize) -> String {
+    let mut result = String::new();
+    let indent = " ".repeat(base_indent);
+    let mut current_indent = indent.clone();
+
+    for line in html.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            result.push('\n');
+            continue;
+        }
+
+        if trimmed.starts_with("</") {
+            current_indent = " ".repeat(current_indent.len() - 4);
+        }
+
+        if !trimmed.is_empty() {
+            result.push_str(&current_indent);
+            result.push_str(trimmed);
+            result.push('\n');
+        }
+
+        if trimmed.contains("<") && !trimmed.contains("</") && !trimmed.ends_with("/>") && !trimmed.contains("</div>") {
+            current_indent = " ".repeat(current_indent.len() + 4);
+        }
+    }
+    result
+}
+
 fn convert_file(markdown_path: &Path, options: &markdown::Options) -> Result<(), ConversionError> {
     let markdown_content = fs::read_to_string(markdown_path)?;
 
     let html_output = markdown::to_html_with_options(&markdown_content, options)?;
 
+    let head_content = format!(
+        "    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>{}</title>",
+        markdown_path.file_stem().unwrap().to_string_lossy()
+    );
+
+    let body_content = indent_html(&html_output, 4);
+
     let full_html = format!(
-        r#"<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{}</title>
-</head>
-<body>
-{}
-</body>
-</html>"#,
-        markdown_path.file_stem().unwrap().to_string_lossy(),
-        html_output
+        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n{}\n</head>\n<body>\n{}</body>\n</html>",
+        head_content,
+        body_content
     );
 
     let html_path = Path::new("html").join(
