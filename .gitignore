@@ -5,5 +5,6 @@ target/
 .idea/
 
 # ImI
-/html/
-/markdown/
+/html/*
+!/html/README.html
+/markdown/*

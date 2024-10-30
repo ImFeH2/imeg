@@ -1,12 +1,13 @@
-use std::fs;
-use std::path::{Path, PathBuf};
 use crate::error::ConversionError;
+use std::fs::{self, File};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
 pub fn markdown_paths(dir: &str) -> Result<Vec<PathBuf>, ConversionError> {
     let mut paths = Vec::new();
 
     if !Path::new(dir).exists() {
-        return Err(ConversionError::Custom("Markdown directory does not exist!".to_string()));
+        fs::create_dir(dir)?;
     }
 
     for entry in fs::read_dir(dir)? {
@@ -51,4 +52,11 @@ pub fn indent_html(html: &str, base_indent: usize) -> String {
         }
     }
     result
+}
+
+pub fn save_html(filepath: &Path, content: &String) -> std::io::Result<()> {
+    let html_path = filepath.with_extension("html");
+
+    let mut file = File::create(html_path)?;
+    file.write_all(content.as_bytes())
 }

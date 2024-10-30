@@ -1,12 +1,11 @@
-use std::fs::{self, File};
-use std::io::Write;
-use std::path::Path;
 use markdown::Options;
+use std::fs::{self};
+use std::path::Path;
 
 use crate::error::ConversionError;
-use crate::utils::file::indent_html;
+use crate::utils::file::{indent_html, save_html};
 
-pub fn convert_file(markdown_path: &Path, options: &Options) -> Result<(), ConversionError> {
+pub fn convert_file(markdown_path: &Path, output_dir: Option<&Path>, options: &Options) -> Result<(), ConversionError> {
     let markdown_content = fs::read_to_string(markdown_path)?;
     let html_output = markdown::to_html_with_options(&markdown_content, options)?;
 
@@ -23,12 +22,19 @@ pub fn convert_file(markdown_path: &Path, options: &Options) -> Result<(), Conve
         body_content
     );
 
-    let html_path = Path::new("html").join(
-        markdown_path.file_stem().unwrap().to_string_lossy().to_string() + ".html"
-    );
+    let html_path = match output_dir {
+        Some(dir) => {
+            if !dir.exists() {
+                fs::create_dir_all(dir)?;
+            }
+            dir.join(markdown_path.file_stem().unwrap().to_string_lossy().to_string() + ".html")
+        }
+        None => {
+            markdown_path.with_extension("html")
+        }
+    };
 
-    let mut file = File::create(html_path)?;
-    file.write_all(full_html.as_bytes())?;
+    save_html(html_path.as_path(), &full_html)?;
 
     println!("Converted: {}", markdown_path.display());
     Ok(())
