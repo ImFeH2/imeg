@@ -3,3 +3,7 @@ target/
 
 # IDE
 .idea/
+
+# ImI
+/html/
+/markdown/
