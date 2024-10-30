@@ -17,3 +17,4 @@ keywords = []
 categories = []
 
 [dependencies]
+markdown = "1.0.0-alpha.21"
