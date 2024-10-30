@@ -1,6 +1,6 @@
-# ImEG
+# ImI
 
-Decentralized &amp; Codeless content sharing system
+Decentralized & Codeless content sharing system
 
 # Todo
 
