@@ -4,4 +4,5 @@ Decentralized & Codeless content sharing system
 
 # Todo
 
-- [ ] Markdown Parser
+- [X] Markdown Parser
+- [ ] React.js Template
