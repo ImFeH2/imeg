@@ -3,7 +3,7 @@ name = "ImI"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
-readme = "README.md"
+readme = "../README.md"
 
 description = """
 Decentralized & Codeless content sharing system.
@@ -11,6 +11,12 @@ Decentralized & Codeless content sharing system.
 
 authors = [
     "ImFeH2 <i@feh2.im>"
+]
+
+[workspace]
+members = [
+    "",
+    "frontend"
 ]
 
 keywords = []
