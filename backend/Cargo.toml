@@ -15,8 +15,7 @@ authors = [
 
 [workspace]
 members = [
-    "",
-    "frontend"
+    "."
 ]
 
 keywords = []
