@@ -26,6 +26,9 @@ export function ElementRenderer({
         top: element.position.y,
         width: element.size.width,
         height: element.size.height,
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        MozUserSelect: 'none',
     };
 
     const renderContent = () => {
@@ -39,7 +42,9 @@ export function ElementRenderer({
                             backgroundColor: element.props.backgroundColor,
                             width: '100%',
                             height: '100%',
-                            padding: '8px'
+                            padding: '8px',
+                            pointerEvents: isPreview ? 'auto' : 'none',
+                            userSelect: 'none',
                         }}
                     >
                         {element.props.text}
@@ -50,7 +55,15 @@ export function ElementRenderer({
                     <img
                         src={element.props.src}
                         alt={element.props.alt}
-                        style={{width: '100%', height: '100%', objectFit: 'cover'}}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            pointerEvents: isPreview ? 'auto' : 'none',
+                            userSelect: 'none',
+                        }}
+                        draggable={false}
+                        onDragStart={(e) => e.preventDefault()}
                     />
                 );
             case 'button':
@@ -62,7 +75,9 @@ export function ElementRenderer({
                             width: '100%',
                             height: '100%',
                             border: 'none',
-                            borderRadius: '4px'
+                            borderRadius: '4px',
+                            pointerEvents: isPreview ? 'auto' : 'none',
+                            userSelect: 'none',
                         }}
                     >
                         {element.props.text}
@@ -75,7 +90,9 @@ export function ElementRenderer({
                             listStyleType: element.props.listStyle,
                             padding: '8px 24px',
                             height: '100%',
-                            overflowY: 'auto'
+                            overflowY: 'auto',
+                            pointerEvents: isPreview ? 'auto' : 'none',
+                            userSelect: 'none',
                         }}
                     >
                         {element.props.items?.map((item, index) => (
@@ -96,18 +113,30 @@ export function ElementRenderer({
             className={`absolute ${isPreview ? '' : 'border border-gray-200'} ${
                 isSelected && !isPreview ? 'ring-2 ring-blue-500' : ''
             }`}
-            onClick={onSelect}
+            onClick={(e) => {
+                e.preventDefault();
+                onSelect();
+            }}
+            onMouseDown={(e) => {
+                if (!isPreview) {
+                    e.preventDefault();
+                }
+            }}
         >
             {!isPreview && (
                 <>
                     <div
                         className="absolute -top-6 left-0 right-0 flex items-center justify-between bg-blue-500 text-white text-xs px-2 py-1 rounded-t"
-                        onMouseDown={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                        }}
                     >
                         <span>{element.type}</span>
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
+                                e.preventDefault();
                                 onDelete();
                             }}
                             className="hover:bg-blue-600 p-1 rounded"
@@ -117,25 +146,42 @@ export function ElementRenderer({
                     </div>
                     <div
                         className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 cursor-nw-resize"
-                        onMouseDown={(e) => onMouseDown(e, 'top-left')}
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            onMouseDown(e, 'top-left');
+                        }}
                     />
                     <div
                         className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 cursor-ne-resize"
-                        onMouseDown={(e) => onMouseDown(e, 'top-right')}
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            onMouseDown(e, 'top-right');
+                        }}
                     />
                     <div
                         className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 cursor-sw-resize"
-                        onMouseDown={(e) => onMouseDown(e, 'bottom-left')}
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            onMouseDown(e, 'bottom-left');
+                        }}
                     />
                     <div
                         className="absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 cursor-se-resize"
-                        onMouseDown={(e) => onMouseDown(e, 'bottom-right')}
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            onMouseDown(e, 'bottom-right');
+                        }}
                     />
                 </>
             )}
             <div
                 className={`w-full h-full ${!isPreview ? 'cursor-move' : ''}`}
-                onMouseDown={onDragStart}
+                onMouseDown={(e) => {
+                    if (!isPreview) {
+                        e.preventDefault();
+                        onDragStart(e);
+                    }
+                }}
             >
                 {renderContent()}
             </div>
