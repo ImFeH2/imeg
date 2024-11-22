@@ -102,8 +102,8 @@ export default function Editor() {
     const [showProperties, setShowProperties] = useState(false);
     const [elements, setElements] = useState<Element[]>([]);
     const [selectedElement, setSelectedElement] = useState<Element | null>(null);
-    const [history, setHistory] = useState<Element[][]>([]);
-    const [historyIndex, setHistoryIndex] = useState(-1);
+    const [history, setHistory] = useState<Element[][]>([[]]);
+    const [historyIndex, setHistoryIndex] = useState(0);
     const [resizing, setResizing] = useState<ResizingState | null>(null);
     const [initialSize, setInitialSize] = useState<Size | null>(null);
     const [initialPosition, setInitialPosition] = useState<Position | null>(null);
@@ -129,7 +129,7 @@ export default function Editor() {
 
     const addToHistory = (newElements: Element[]) => {
         const newHistory = history.slice(0, historyIndex + 1);
-        newHistory.push(newElements);
+        newHistory.push([...newElements]);
         setHistory(newHistory);
         setHistoryIndex(newHistory.length - 1);
     };
@@ -202,7 +202,7 @@ export default function Editor() {
 
         const handleMouseUp = () => {
             if (resizing) {
-                addToHistory(elements);
+                addToHistory([...elements]);
                 setResizing(null);
                 setInitialSize(null);
                 setInitialPosition(null);
@@ -241,7 +241,7 @@ export default function Editor() {
         };
 
         const handleDragEnd = () => {
-            addToHistory(elements);
+            addToHistory([...elements]);
             document.removeEventListener('mousemove', handleDragMove);
             document.removeEventListener('mouseup', handleDragEnd);
         };
@@ -253,14 +253,14 @@ export default function Editor() {
     const undo = () => {
         if (historyIndex > 0) {
             setHistoryIndex(historyIndex - 1);
-            setElements(history[historyIndex - 1]);
+            setElements([...history[historyIndex - 1]]);
         }
     };
 
     const redo = () => {
         if (historyIndex < history.length - 1) {
             setHistoryIndex(historyIndex + 1);
-            setElements(history[historyIndex + 1]);
+            setElements([...history[historyIndex + 1]]);
         }
     };
 
