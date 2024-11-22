@@ -1,54 +1,53 @@
-import {useState} from 'react';
-import {Element, Position, ResizingState, Size} from '../types';
+import {useCallback} from 'react';
+import {Element} from '../types';
 
 export function useElementInteraction(
     elements: Element[],
     setElements: (elements: Element[]) => void,
     addToHistory: (elements: Element[]) => void
 ) {
-    const [resizing, setResizing] = useState<ResizingState | null>(null);
-    const [initialSize, setInitialSize] = useState<Size | null>(null);
-    const [initialPosition, setInitialPosition] = useState<Position | null>(null);
+    const handleMouseDown = useCallback((e: React.MouseEvent, elementId: number, corner: string) => {
+        e.stopPropagation();
 
-    const handleMouseDown = (e: React.MouseEvent, elementId: number, corner: string) => {
         const element = elements.find(el => el.id === elementId);
         if (!element) return;
 
-        setResizing({
-            elementId,
-            corner,
-            startX: e.clientX,
-            startY: e.clientY
-        });
-        setInitialSize({...element.size});
-        setInitialPosition({...element.position});
+        const startX = e.clientX;
+        const startY = e.clientY;
 
-        const handleMouseMove = (e: MouseEvent) => {
-            if (!resizing || !initialSize || !initialPosition) return;
-
-            const deltaX = e.clientX - resizing.startX;
-            const deltaY = e.clientY - resizing.startY;
+        const handleMouseMove = (moveEvent: MouseEvent) => {
+            const deltaX = moveEvent.clientX - startX;
+            const deltaY = moveEvent.clientY - startY;
 
             const newElements = elements.map(el => {
                 if (el.id === elementId) {
-                    const newSize = {...initialSize};
-                    const newPosition = {...initialPosition};
+                    let newSize = {...element.size};
+                    let newPosition = {...element.position};
 
-                    if (corner.includes('right')) {
-                        newSize.width = Math.max(50, initialSize.width + deltaX);
-                    }
-                    if (corner.includes('bottom')) {
-                        newSize.height = Math.max(50, initialSize.height + deltaY);
-                    }
-                    if (corner.includes('left')) {
-                        const newWidth = Math.max(50, initialSize.width - deltaX);
-                        newPosition.x = initialPosition.x + (initialSize.width - newWidth);
-                        newSize.width = newWidth;
-                    }
-                    if (corner.includes('top')) {
-                        const newHeight = Math.max(50, initialSize.height - deltaY);
-                        newPosition.y = initialPosition.y + (initialSize.height - newHeight);
-                        newSize.height = newHeight;
+                    switch (corner) {
+                        case 'top-left':
+                            newSize.width = Math.max(50, element.size.width - deltaX);
+                            newSize.height = Math.max(50, element.size.height - deltaY);
+                            newPosition.x = element.position.x + (element.size.width - newSize.width);
+                            newPosition.y = element.position.y + (element.size.height - newSize.height);
+                            break;
+
+                        case 'top-right':
+                            newSize.width = Math.max(50, element.size.width + deltaX);
+                            newSize.height = Math.max(50, element.size.height - deltaY);
+                            newPosition.y = element.position.y + (element.size.height - newSize.height);
+                            break;
+
+                        case 'bottom-left':
+                            newSize.width = Math.max(50, element.size.width - deltaX);
+                            newSize.height = Math.max(50, element.size.height + deltaY);
+                            newPosition.x = element.position.x + (element.size.width - newSize.width);
+                            break;
+
+                        case 'bottom-right':
+                            newSize.width = Math.max(50, element.size.width + deltaX);
+                            newSize.height = Math.max(50, element.size.height + deltaY);
+                            break;
                     }
 
                     return {
@@ -64,22 +63,16 @@ export function useElementInteraction(
         };
 
         const handleMouseUp = () => {
-            if (resizing) {
-                addToHistory(elements);
-                setResizing(null);
-                setInitialSize(null);
-                setInitialPosition(null);
-            }
-
+            addToHistory(elements);
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
 
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
-    };
+    }, [elements, setElements, addToHistory]);
 
-    const handleDragStart = (e: React.MouseEvent, elementId: number) => {
+    const handleDragStart = useCallback((e: React.MouseEvent, elementId: number) => {
         const element = elements.find(el => el.id === elementId);
         if (!element) return;
 
@@ -124,7 +117,7 @@ export function useElementInteraction(
 
         document.addEventListener('mousemove', handleDragMove);
         document.addEventListener('mouseup', handleDragEnd);
-    };
+    }, [elements, setElements, addToHistory]);
 
     return {
         handleMouseDown,
