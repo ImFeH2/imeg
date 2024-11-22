@@ -1,5 +1,6 @@
 import {useCallback} from 'react';
 import {Element} from '../types';
+import {isEqual} from 'lodash';
 
 export function useElementInteraction(
     elements: Element[],
@@ -14,6 +15,7 @@ export function useElementInteraction(
 
         const startX = e.clientX;
         const startY = e.clientY;
+        const originalElement = {...element};
 
         const handleMouseMove = (moveEvent: MouseEvent) => {
             const deltaX = moveEvent.clientX - startX;
@@ -63,7 +65,11 @@ export function useElementInteraction(
         };
 
         const handleMouseUp = () => {
-            addToHistory(elements);
+            const finalElement = elements.find(el => el.id === elementId);
+            if (!isEqual(originalElement.position, finalElement?.position) ||
+                !isEqual(originalElement.size, finalElement?.size)) {
+                addToHistory(elements);
+            }
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
@@ -78,6 +84,7 @@ export function useElementInteraction(
 
         const startX = e.clientX - element.position.x;
         const startY = e.clientY - element.position.y;
+        const originalPosition = {...element.position};
 
         const handleDragMove = (e: MouseEvent) => {
             const newElements = elements.map(el => {
@@ -96,21 +103,25 @@ export function useElementInteraction(
         };
 
         const handleDragEnd = (e: MouseEvent) => {
+            const newPosition = {
+                x: e.clientX - startX,
+                y: e.clientY - startY
+            };
+
             const finalElements = elements.map(el => {
                 if (el.id === elementId) {
                     return {
                         ...el,
-                        position: {
-                            x: e.clientX - startX,
-                            y: e.clientY - startY
-                        }
+                        position: newPosition
                     };
                 }
                 return el;
             });
 
-            setElements(finalElements);
-            addToHistory(finalElements);
+            if (!isEqual(originalPosition, newPosition)) {
+                setElements(finalElements);
+                addToHistory(finalElements);
+            }
             document.removeEventListener('mousemove', handleDragMove);
             document.removeEventListener('mouseup', handleDragEnd);
         };
