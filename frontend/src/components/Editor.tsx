@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {Eye, Pencil, Redo, Save, Settings, Sidebar, Undo, X} from 'lucide-react';
+import {Eye, Pencil, Redo, Save, Settings, Sidebar, Trash2, Undo, X} from 'lucide-react';
 
 interface ComponentProps {
     text?: string;
@@ -264,6 +264,16 @@ export default function Editor() {
         }
     };
 
+    const deleteElement = (id: number) => {
+        const newElements = elements.filter(el => el.id !== id);
+        setElements(newElements);
+        if (selectedElement?.id === id) {
+            setSelectedElement(null);
+            setShowProperties(false);
+        }
+        addToHistory(newElements);
+    };
+
     const renderElement = (element: Element) => {
         const style: React.CSSProperties = {
             position: 'absolute',
@@ -355,10 +365,19 @@ export default function Editor() {
                 {!isPreview && (
                     <>
                         <div
-                            className="absolute -top-6 left-0 bg-blue-500 text-white text-xs px-2 py-1 rounded-t"
+                            className="absolute -top-6 left-0 right-0 flex items-center justify-between bg-blue-500 text-white text-xs px-2 py-1 rounded-t"
                             onMouseDown={(e) => e.stopPropagation()}
                         >
-                            {element.type}
+                            <span>{element.type}</span>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteElement(element.id);
+                                }}
+                                className="hover:bg-blue-600 p-1 rounded"
+                            >
+                                <Trash2 size={12}/>
+                            </button>
                         </div>
                         <div
                             className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 cursor-nw-resize"
