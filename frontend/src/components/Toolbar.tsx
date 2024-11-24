@@ -11,6 +11,8 @@ interface ToolbarProps {
     canRedo: boolean;
     onUndo: () => void;
     onRedo: () => void;
+    onSave: () => void;
+    isSaving: boolean;
 }
 
 export function Toolbar({
@@ -23,7 +25,9 @@ export function Toolbar({
                             canUndo,
                             canRedo,
                             onUndo,
-                            onRedo
+                            onRedo,
+                            onSave,
+                            isSaving
                         }: ToolbarProps) {
     return (
         <div className="fixed top-0 left-0 right-0 h-12 bg-white border-b flex items-center px-4 z-10">
@@ -62,8 +66,16 @@ export function Toolbar({
                     <Redo size={20}/>
                 </button>
                 <div className="h-6 w-px bg-gray-300 mx-2"/>
-                <button className="p-2 hover:bg-gray-100 rounded">
+                <button
+                    onClick={onSave}
+                    disabled={isSaving}
+                    className={`p-2 hover:bg-gray-100 rounded flex items-center space-x-1
+                        ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
                     <Save size={20}/>
+                    {isSaving && (
+                        <div className="ml-1 w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"/>
+                    )}
                 </button>
             </div>
         </div>

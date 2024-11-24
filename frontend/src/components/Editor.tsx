@@ -6,8 +6,14 @@ import {PropertiesPanel} from './PropertiesPanel';
 import {ElementRenderer} from './ElementRenderer';
 import {componentsData} from '../constants/components';
 import {ComponentProps} from '../types';
+import {useEffect, useState} from 'react';
+import {XCircle} from 'lucide-react';
 
 export default function Editor() {
+    const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
     const {
         isPreview,
         setIsPreview,
@@ -23,7 +29,8 @@ export default function Editor() {
         history,
         addToHistory,
         undo,
-        redo
+        redo,
+        resetHistory
     } = useEditorState();
 
     const {handleMouseDown, handleDragStart} = useElementInteraction(
@@ -31,6 +38,30 @@ export default function Editor() {
         setElements,
         addToHistory
     );
+
+    useEffect(() => {
+        const loadContent = async () => {
+            try {
+                const response = await fetch('http://localhost:3000/api/page');
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load page content');
+                }
+
+                if (data.data && Array.isArray(data.data.elements)) {
+                    setElements(data.data.elements);
+                    resetHistory(data.data.elements);
+                }
+            } catch (error) {
+                setError(error instanceof Error ? error.message : 'Failed to load page content');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadContent();
+    }, []);
 
     const addElement = (type: string) => {
         const componentData = componentsData.find(c => c.id === type);
@@ -72,6 +103,46 @@ export default function Editor() {
         addToHistory(newElements);
     };
 
+    const handleSave = async () => {
+        setIsSaving(true);
+        setError(null);
+        try {
+            const response = await fetch('http://localhost:3000/api/page', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    elements: elements.map(el => ({
+                        ...el,
+                        id: Number(el.id)
+                    }))
+                })
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to save page');
+            }
+        } catch (error) {
+            setError(error instanceof Error ? error.message : 'Failed to save page');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="h-screen flex items-center justify-center bg-gray-50">
+                <div className="flex flex-col items-center space-y-4">
+                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+                    <div className="text-gray-600">Loading editor content...</div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="h-screen flex">
             <Toolbar
@@ -85,7 +156,22 @@ export default function Editor() {
                 canRedo={historyIndex < history.length - 1}
                 onUndo={undo}
                 onRedo={redo}
+                onSave={handleSave}
+                isSaving={isSaving}
             />
+
+            {error && (
+                <div className="fixed top-14 right-4 w-96 bg-red-50 border-l-4 border-red-500 p-4 rounded shadow-lg">
+                    <div className="flex items-start">
+                        <div className="flex-shrink-0">
+                            <XCircle className="h-5 w-5 text-red-500"/>
+                        </div>
+                        <div className="ml-3">
+                            <p className="text-sm text-red-700">{error}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="flex flex-1 pt-12">
                 {showSidebar && !isPreview && (

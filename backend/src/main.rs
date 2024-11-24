@@ -1,34 +1,47 @@
-mod converter;
-mod error;
-mod utils {
-    pub mod file;
-}
+mod db;
+mod handlers;
+mod models;
 
-use converter::convert_file;
-use error::ConversionError;
-use std::fs;
-use std::path::Path;
-use utils::file::markdown_paths;
+use axum::{
+    routing::{get, post},
+    Router,
+};
+use sqlx::postgres::PgPoolOptions;
+use std::net::SocketAddr;
+use std::sync::Arc;
+use tower_http::cors::{Any, CorsLayer};
 
-fn main() -> Result<(), ConversionError> {
-    if Path::new("../../html").exists() {
-        fs::remove_dir_all("../../html")?;
-    }
-    fs::create_dir("../../html")?;
+const DATABASE_URL: &str = "postgresql://imi_user:imi_passwd@localhost:5432/imi";
 
-    let markdown_files = markdown_paths("markdown")?;
+#[tokio::main]
+async fn main() {
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(DATABASE_URL)
+        .await
+        .expect("Failed to connect to PostgreSQL");
 
-    let mut options = markdown::Options::gfm();
-    options.compile.allow_dangerous_html = true;
-    options.compile.allow_dangerous_protocol = true;
+    db::init_db(&pool)
+        .await
+        .expect("Failed to initialize database");
 
-    for markdown_path in markdown_files {
-        convert_file(&markdown_path, Some(Path::new("../../html")), &options)?;
-    }
+    let state = Arc::new(pool);
 
-    let readme = Path::new("../../README.md");
-    convert_file(readme, Some(Path::new("../../html")), &options)?;
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
 
-    println!("Successfully converted all markdown files to HTML!");
-    Ok(())
+    let app = Router::new()
+        .route("/api/page", get(handlers::get_page))
+        .route("/api/page", post(handlers::save_page))
+        .with_state(state)
+        .layer(cors);
+
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    println!("API server running on http://{}", addr);
+
+    axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app)
+        .await
+        .unwrap();
 }

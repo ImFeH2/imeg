@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+    postgres:
+        image: postgres:16
+        container_name: imi_postgres
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: imi_user
+            POSTGRES_PASSWORD: imi_passwd
+            POSTGRES_DB: imi
+            PGDATA: /var/lib/postgresql/data/pgdata
+        ports:
+            - "5432:5432"
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        networks:
+            - imi_network
+
+volumes:
+    postgres_data:
+        name: imi_postgres_data
+
+networks:
+    imi_network:
+        name: imi_network
