@@ -4,6 +4,7 @@ import {Toolbar} from './Toolbar';
 import {ComponentsSidebar} from './ComponentsSidebar';
 import {PropertiesPanel} from './PropertiesPanel';
 import {ElementRenderer} from './ElementRenderer';
+import PreviewMode from './PreviewMode';
 import {componentsData} from '../constants/components';
 import {ComponentProps} from '../types';
 import {useEffect, useState} from 'react';
@@ -143,6 +144,44 @@ export default function Editor() {
         );
     }
 
+    if (isPreview) {
+        return <PreviewMode elements={elements} onExitPreview={() => setIsPreview(false)}/>;
+    }
+
+    const updateElementPosition = (axis: 'x' | 'y', value: number) => {
+        const newElements = elements.map(el =>
+            el.id === selectedElement?.id
+                ? {
+                    ...el,
+                    position: {
+                        ...el.position,
+                        [axis]: value
+                    }
+                }
+                : el
+        );
+        setElements(newElements);
+        setSelectedElement(newElements.find(el => el.id === selectedElement?.id) || null);
+        addToHistory(newElements);
+    };
+
+    const updateElementSize = (dimension: 'width' | 'height', value: number) => {
+        const newElements = elements.map(el =>
+            el.id === selectedElement?.id
+                ? {
+                    ...el,
+                    size: {
+                        ...el.size,
+                        [dimension]: value
+                    }
+                }
+                : el
+        );
+        setElements(newElements);
+        setSelectedElement(newElements.find(el => el.id === selectedElement?.id) || null);
+        addToHistory(newElements);
+    };
+
     return (
         <div className="h-screen flex">
             <Toolbar
@@ -174,7 +213,7 @@ export default function Editor() {
             )}
 
             <div className="flex flex-1 pt-12">
-                {showSidebar && !isPreview && (
+                {showSidebar && (
                     <ComponentsSidebar
                         components={componentsData}
                         onAddElement={addElement}
@@ -189,12 +228,10 @@ export default function Editor() {
                                     key={element.id}
                                     element={element}
                                     isSelected={selectedElement?.id === element.id}
-                                    isPreview={isPreview}
+                                    isPreview={false}
                                     onSelect={() => {
-                                        if (!isPreview) {
-                                            setSelectedElement(element);
-                                            setShowProperties(true);
-                                        }
+                                        setSelectedElement(element);
+                                        setShowProperties(true);
                                     }}
                                     onDelete={() => deleteElement(element.id)}
                                     onMouseDown={(e, corner) => handleMouseDown(e, element.id, corner)}
@@ -205,31 +242,13 @@ export default function Editor() {
                     </div>
                 </div>
 
-                {showProperties && !isPreview && selectedElement && (
+                {showProperties && selectedElement && (
                     <PropertiesPanel
                         element={selectedElement}
                         onClose={() => setShowProperties(false)}
                         onUpdateProps={updateElementProps}
-                        onUpdatePosition={(axis, value) => {
-                            const newElements = elements.map(el =>
-                                el.id === selectedElement.id
-                                    ? {...el, position: {...el.position, [axis]: value}}
-                                    : el
-                            );
-                            setElements(newElements);
-                            setSelectedElement(newElements.find(el => el.id === selectedElement.id) || null);
-                            addToHistory(newElements);
-                        }}
-                        onUpdateSize={(dimension, value) => {
-                            const newElements = elements.map(el =>
-                                el.id === selectedElement.id
-                                    ? {...el, size: {...el.size, [dimension]: value}}
-                                    : el
-                            );
-                            setElements(newElements);
-                            setSelectedElement(newElements.find(el => el.id === selectedElement.id) || null);
-                            addToHistory(newElements);
-                        }}
+                        onUpdatePosition={updateElementPosition}
+                        onUpdateSize={updateElementSize}
                     />
                 )}
             </div>
