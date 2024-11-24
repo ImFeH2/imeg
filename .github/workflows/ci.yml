@@ -8,6 +8,7 @@ on:
 
 env:
     CARGO_TERM_COLOR: always
+    DATABASE_URL: postgresql://imi_user:imi_passwd@localhost:5432/imi
 
 jobs:
     backend:
@@ -16,6 +17,21 @@ jobs:
         defaults:
             run:
                 working-directory: ./backend
+
+        services:
+            postgres:
+                image: postgres:latest
+                env:
+                    POSTGRES_DB: imi
+                    POSTGRES_USER: imi_user
+                    POSTGRES_PASSWORD: imi_passwd
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd pg_isready
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
 
         steps:
             -   uses: actions/checkout@v4
@@ -37,6 +53,8 @@ jobs:
 
             -   name: Run tests
                 run: cargo test --verbose
+                env:
+                    DATABASE_URL: postgresql://imi_user:imi_passwd@localhost:5432/imi
 
     frontend:
         name: Frontend
