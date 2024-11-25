@@ -4,12 +4,12 @@ import {Toolbar} from './Toolbar';
 import {ComponentsSidebar} from './ComponentsSidebar';
 import {PropertiesPanel} from './PropertiesPanel';
 import PageSettingsPanel from './PageSettingsPanel';
-import {ElementRenderer} from './ElementRenderer';
 import PreviewMode from './PreviewMode';
 import {componentsData} from '../constants/components';
 import {ComponentProps, PageSettings} from '../types';
 import {useEffect, useState} from 'react';
 import {XCircle} from 'lucide-react';
+import Canvas from "@/components/Canvas.tsx";
 
 const defaultPageSettings: PageSettings = {
     responsive: true,
@@ -222,22 +222,6 @@ export default function Editor() {
         addToHistory(newElements);
     };
 
-    const getPageStyle = () => {
-        if (pageSettings.responsive) {
-            return {
-                backgroundColor: pageSettings.bgColor,
-                minHeight: '500px',
-                ...(pageSettings.maxWidth !== 'none' && {maxWidth: pageSettings.maxWidth})
-            };
-        }
-
-        return {
-            width: `${pageSettings.width}px`,
-            height: `${pageSettings.height}px`,
-            backgroundColor: pageSettings.bgColor
-        };
-    };
-
     if (isPreview) {
         return (
             <PreviewMode
@@ -299,29 +283,19 @@ export default function Editor() {
                     />
                 )}
 
-                <div className="flex-1 bg-gray-50 overflow-auto">
-                    <div className={`mx-auto p-8 ${pageSettings.responsive ? pageSettings.maxWidth : ''}`}>
-                        <div
-                            className="relative rounded-lg shadow-sm border"
-                            style={getPageStyle()}
-                        >
-                            {elements.map(element => (
-                                <ElementRenderer
-                                    key={element.id}
-                                    element={element}
-                                    isSelected={selectedElement?.id === element.id}
-                                    isPreview={false}
-                                    onSelect={() => {
-                                        setSelectedElement(element);
-                                        setShowProperties(true);
-                                    }}
-                                    onDelete={() => deleteElement(element.id)}
-                                    onMouseDown={(e, corner) => handleMouseDown(e, element.id, corner)}
-                                    onDragStart={(e) => handleDragStart(e, element.id)}
-                                />
-                            ))}
-                        </div>
-                    </div>
+                <div className="flex-1 bg-gray-50 overflow-hidden">
+                    <Canvas
+                        elements={elements}
+                        pageSettings={pageSettings}
+                        selectedElement={selectedElement}
+                        onElementSelect={(element) => {
+                            setSelectedElement(element);
+                            setShowProperties(true);
+                        }}
+                        onElementDelete={deleteElement}
+                        onMouseDown={handleMouseDown}
+                        onDragStart={handleDragStart}
+                    />
                 </div>
 
                 {showProperties && selectedElement && (
