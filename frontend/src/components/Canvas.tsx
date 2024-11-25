@@ -184,7 +184,7 @@ const Canvas = ({
             onClick={handleCanvasClick}
             style={{cursor: isDragging ? 'grabbing' : 'grab'}}
         >
-            <div className="absolute right-4 bottom-4 bg-white px-2 py-1 rounded shadow text-sm">
+            <div className="absolute right-4 bottom-4 bg-white px-2 py-1 rounded shadow text-sm z-10">
                 {Math.round(scale * 100)}%
             </div>
             <div
