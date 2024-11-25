@@ -7,10 +7,12 @@ interface ComponentsSidebarProps {
 
 export function ComponentsSidebar({components, onAddElement}: ComponentsSidebarProps) {
     return (
-        <div className="w-64 border-r bg-white">
-            <div className="p-4">
-                <h2 className="font-semibold text-sm text-gray-700 mb-4">Components</h2>
-                <div className="space-y-2">
+        <div className="w-64 border-r bg-white h-full flex flex-col">
+            <div className="p-4 border-b">
+                <h2 className="font-semibold text-sm text-gray-700">Components</h2>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+                <div className="p-4 space-y-2">
                     {components.map(component => (
                         <button
                             key={component.id}
