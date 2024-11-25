@@ -1,26 +1,3 @@
-export interface ComponentProps {
-    text?: string;
-    fontSize?: number;
-    color?: string;
-    backgroundColor?: string;
-    src?: string;
-    alt?: string;
-    width?: number;
-    height?: number;
-    bgColor?: string;
-    textColor?: string;
-    items?: string[];
-    listStyle?: string;
-    spacing?: number;
-}
-
-export interface ComponentData {
-    id: string;
-    name: string;
-    icon: string;
-    defaultProps: ComponentProps;
-}
-
 export interface Position {
     x: number;
     y: number;
@@ -31,6 +8,10 @@ export interface Size {
     height: number;
 }
 
+export interface ComponentProps {
+    [key: string]: any;
+}
+
 export interface Element {
     id: number;
     type: string;
@@ -39,9 +20,22 @@ export interface Element {
     props: ComponentProps;
 }
 
-export interface ResizingState {
-    elementId: number;
-    corner: string;
-    startX: number;
-    startY: number;
+export interface ComponentData {
+    id: string;
+    name: string;
+    icon: string;
+    defaultProps: ComponentProps;
+}
+
+export interface PageSettings {
+    responsive: boolean;
+    width: number;
+    height: number;
+    maxWidth: string;
+    bgColor: string;
+}
+
+export interface PageContent {
+    elements: Element[];
+    settings: PageSettings;
 }

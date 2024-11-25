@@ -1,10 +1,12 @@
-import {Eye, Pencil, Redo, Save, Settings, Sidebar, Undo} from 'lucide-react';
+import {Eye, LayoutTemplate, Pencil, Redo, Save, Settings, Sidebar, Undo} from 'lucide-react';
 
 interface ToolbarProps {
     showSidebar: boolean;
     setShowSidebar: (show: boolean) => void;
     showProperties: boolean;
     setShowProperties: (show: boolean) => void;
+    showPageSettings: boolean;
+    setShowPageSettings: (show: boolean) => void;
     isPreview: boolean;
     setIsPreview: (preview: boolean) => void;
     canUndo: boolean;
@@ -20,6 +22,8 @@ export function Toolbar({
                             setShowSidebar,
                             showProperties,
                             setShowProperties,
+                            showPageSettings,
+                            setShowPageSettings,
                             isPreview,
                             setIsPreview,
                             canUndo,
@@ -45,12 +49,20 @@ export function Toolbar({
                     <Settings size={20}/>
                 </button>
                 <button
+                    onClick={() => setShowPageSettings(!showPageSettings)}
+                    className={`p-2 hover:bg-gray-100 rounded ${showPageSettings ? 'bg-gray-100' : ''}`}
+                >
+                    <LayoutTemplate size={20}/>
+                </button>
+                <button
                     onClick={() => setIsPreview(!isPreview)}
                     className={`p-2 hover:bg-gray-100 rounded ${isPreview ? 'bg-gray-100' : ''}`}
                 >
                     {isPreview ? <Pencil size={20}/> : <Eye size={20}/>}
                 </button>
+
                 <div className="h-6 w-px bg-gray-300 mx-2"/>
+
                 <button
                     onClick={onUndo}
                     disabled={!canUndo}
@@ -65,7 +77,9 @@ export function Toolbar({
                 >
                     <Redo size={20}/>
                 </button>
+
                 <div className="h-6 w-px bg-gray-300 mx-2"/>
+
                 <button
                     onClick={onSave}
                     disabled={isSaving}

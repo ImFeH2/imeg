@@ -3,17 +3,28 @@ import {useElementInteraction} from '../hooks/useElementInteraction';
 import {Toolbar} from './Toolbar';
 import {ComponentsSidebar} from './ComponentsSidebar';
 import {PropertiesPanel} from './PropertiesPanel';
+import PageSettingsPanel from './PageSettingsPanel';
 import {ElementRenderer} from './ElementRenderer';
 import PreviewMode from './PreviewMode';
 import {componentsData} from '../constants/components';
-import {ComponentProps} from '../types';
+import {ComponentProps, PageSettings} from '../types';
 import {useEffect, useState} from 'react';
 import {XCircle} from 'lucide-react';
+
+const defaultPageSettings: PageSettings = {
+    responsive: true,
+    width: 1200,
+    height: 800,
+    maxWidth: 'none',
+    bgColor: '#ffffff'
+};
 
 export default function Editor() {
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [showPageSettings, setShowPageSettings] = useState(false);
+    const [pageSettings, setPageSettings] = useState<PageSettings>(defaultPageSettings);
 
     const {
         isPreview,
@@ -50,9 +61,10 @@ export default function Editor() {
                     throw new Error(data.error || 'Failed to load page content');
                 }
 
-                if (data.data && Array.isArray(data.data.elements)) {
-                    setElements(data.data.elements);
-                    resetHistory(data.data.elements);
+                if (data.data) {
+                    setElements(data.data.elements || []);
+                    setPageSettings(data.data.settings || defaultPageSettings);
+                    resetHistory(data.data.elements || []);
                 }
             } catch (error) {
                 setError(error instanceof Error ? error.message : 'Failed to load page content');
@@ -117,7 +129,8 @@ export default function Editor() {
                     elements: elements.map(el => ({
                         ...el,
                         id: Number(el.id)
-                    }))
+                    })),
+                    settings: pageSettings
                 })
             });
 
@@ -133,20 +146,9 @@ export default function Editor() {
         }
     };
 
-    if (isLoading) {
-        return (
-            <div className="h-screen flex items-center justify-center bg-gray-50">
-                <div className="flex flex-col items-center space-y-4">
-                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/>
-                    <div className="text-gray-600">Loading editor content...</div>
-                </div>
-            </div>
-        );
-    }
-
-    if (isPreview) {
-        return <PreviewMode elements={elements} onExitPreview={() => setIsPreview(false)}/>;
-    }
+    const handleUpdatePageSettings = (newSettings: PageSettings) => {
+        setPageSettings(newSettings);
+    };
 
     const updateElementPosition = (axis: 'x' | 'y', value: number) => {
         const newElements = elements.map(el =>
@@ -182,6 +184,43 @@ export default function Editor() {
         addToHistory(newElements);
     };
 
+    const getPageStyle = () => {
+        if (pageSettings.responsive) {
+            return {
+                backgroundColor: pageSettings.bgColor,
+                minHeight: '500px',
+                ...(pageSettings.maxWidth !== 'none' && {maxWidth: pageSettings.maxWidth})
+            };
+        }
+
+        return {
+            width: `${pageSettings.width}px`,
+            height: `${pageSettings.height}px`,
+            backgroundColor: pageSettings.bgColor
+        };
+    };
+
+    if (isLoading) {
+        return (
+            <div className="h-screen flex items-center justify-center bg-gray-50">
+                <div className="flex flex-col items-center space-y-4">
+                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+                    <div className="text-gray-600">Loading editor content...</div>
+                </div>
+            </div>
+        );
+    }
+
+    if (isPreview) {
+        return (
+            <PreviewMode
+                elements={elements}
+                pageSettings={pageSettings}
+                onExitPreview={() => setIsPreview(false)}
+            />
+        );
+    }
+
     return (
         <div className="h-screen flex">
             <Toolbar
@@ -189,6 +228,8 @@ export default function Editor() {
                 setShowSidebar={setShowSidebar}
                 showProperties={showProperties}
                 setShowProperties={setShowProperties}
+                showPageSettings={showPageSettings}
+                setShowPageSettings={setShowPageSettings}
                 isPreview={isPreview}
                 setIsPreview={setIsPreview}
                 canUndo={historyIndex > 0}
@@ -220,9 +261,12 @@ export default function Editor() {
                     />
                 )}
 
-                <div className="flex-1 bg-gray-50">
-                    <div className="max-w-4xl mx-auto p-8">
-                        <div className="relative min-h-[500px] bg-white rounded-lg shadow-sm border">
+                <div className="flex-1 bg-gray-50 overflow-auto">
+                    <div className={`mx-auto p-8 ${pageSettings.responsive ? pageSettings.maxWidth : ''}`}>
+                        <div
+                            className="relative rounded-lg shadow-sm border"
+                            style={getPageStyle()}
+                        >
                             {elements.map(element => (
                                 <ElementRenderer
                                     key={element.id}
@@ -249,6 +293,14 @@ export default function Editor() {
                         onUpdateProps={updateElementProps}
                         onUpdatePosition={updateElementPosition}
                         onUpdateSize={updateElementSize}
+                    />
+                )}
+
+                {showPageSettings && (
+                    <PageSettingsPanel
+                        settings={pageSettings}
+                        onUpdate={handleUpdatePageSettings}
+                        onClose={() => setShowPageSettings(false)}
                     />
                 )}
             </div>

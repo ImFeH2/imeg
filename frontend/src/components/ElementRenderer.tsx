@@ -11,6 +11,34 @@ interface ElementRendererProps {
     onDragStart: (e: React.MouseEvent) => void;
 }
 
+interface TextProps {
+    text: string;
+    fontSize: number;
+    color: string;
+    backgroundColor: string;
+}
+
+interface ImageProps {
+    src: string;
+    alt: string;
+    width: number;
+    height: number;
+}
+
+interface ButtonProps {
+    text: string;
+    bgColor: string;
+    textColor: string;
+    width: number;
+    height: number;
+}
+
+interface ListProps {
+    items: string[];
+    listStyle: string;
+    spacing: number;
+}
+
 export function ElementRenderer({
                                     element,
                                     isSelected,
@@ -33,13 +61,14 @@ export function ElementRenderer({
 
     const renderContent = () => {
         switch (element.type) {
-            case 'text':
+            case 'text': {
+                const props = element.props as TextProps;
                 return (
                     <div
                         style={{
-                            fontSize: `${element.props.fontSize}px`,
-                            color: element.props.color,
-                            backgroundColor: element.props.backgroundColor,
+                            fontSize: `${props.fontSize}px`,
+                            color: props.color,
+                            backgroundColor: props.backgroundColor,
                             width: '100%',
                             height: '100%',
                             padding: '8px',
@@ -47,14 +76,16 @@ export function ElementRenderer({
                             userSelect: 'none',
                         }}
                     >
-                        {element.props.text}
+                        {props.text}
                     </div>
                 );
-            case 'image':
+            }
+            case 'image': {
+                const props = element.props as ImageProps;
                 return (
                     <img
-                        src={element.props.src}
-                        alt={element.props.alt}
+                        src={props.src}
+                        alt={props.alt}
                         style={{
                             width: '100%',
                             height: '100%',
@@ -66,12 +97,14 @@ export function ElementRenderer({
                         onDragStart={(e) => e.preventDefault()}
                     />
                 );
-            case 'button':
+            }
+            case 'button': {
+                const props = element.props as ButtonProps;
                 return (
                     <button
                         style={{
-                            backgroundColor: element.props.bgColor,
-                            color: element.props.textColor,
+                            backgroundColor: props.bgColor,
+                            color: props.textColor,
                             width: '100%',
                             height: '100%',
                             border: 'none',
@@ -80,14 +113,16 @@ export function ElementRenderer({
                             userSelect: 'none',
                         }}
                     >
-                        {element.props.text}
+                        {props.text}
                     </button>
                 );
-            case 'list':
+            }
+            case 'list': {
+                const props = element.props as ListProps;
                 return (
                     <ul
                         style={{
-                            listStyleType: element.props.listStyle,
+                            listStyleType: props.listStyle,
                             padding: '8px 24px',
                             height: '100%',
                             overflowY: 'auto',
@@ -95,13 +130,14 @@ export function ElementRenderer({
                             userSelect: 'none',
                         }}
                     >
-                        {element.props.items?.map((item, index) => (
-                            <li key={index} style={{marginBottom: `${element.props.spacing}px`}}>
+                        {props.items.map((item: string, index: number) => (
+                            <li key={index} style={{marginBottom: `${props.spacing}px`}}>
                                 {item}
                             </li>
                         ))}
                     </ul>
                 );
+            }
             default:
                 return <div>Unknown Component</div>;
         }
