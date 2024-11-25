@@ -5,7 +5,9 @@ import {isEqual} from 'lodash';
 export function useElementInteraction(
     elements: Element[],
     setElements: (elements: Element[]) => void,
-    addToHistory: (elements: Element[]) => void
+    addToHistory: (elements: Element[]) => void,
+    scale: number,
+    canvasPosition: { x: number, y: number }
 ) {
     const handleMouseDown = useCallback((e: React.MouseEvent, elementId: number, corner: string) => {
         e.stopPropagation();
@@ -13,13 +15,15 @@ export function useElementInteraction(
         const element = elements.find(el => el.id === elementId);
         if (!element) return;
 
-        const startX = e.clientX;
-        const startY = e.clientY;
+        const startX = (e.clientX - canvasPosition.x) / scale;
+        const startY = (e.clientY - canvasPosition.y) / scale;
         const originalElement = {...element};
 
         const handleMouseMove = (moveEvent: MouseEvent) => {
-            const deltaX = moveEvent.clientX - startX;
-            const deltaY = moveEvent.clientY - startY;
+            const currentX = (moveEvent.clientX - canvasPosition.x) / scale;
+            const currentY = (moveEvent.clientY - canvasPosition.y) / scale;
+            const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
 
             const newElements = elements.map(el => {
                 if (el.id === elementId) {
@@ -76,14 +80,14 @@ export function useElementInteraction(
 
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
-    }, [elements, setElements, addToHistory]);
+    }, [elements, setElements, addToHistory, scale, canvasPosition]);
 
     const handleDragStart = useCallback((e: React.MouseEvent, elementId: number) => {
         const element = elements.find(el => el.id === elementId);
         if (!element) return;
 
-        const startX = e.clientX - element.position.x;
-        const startY = e.clientY - element.position.y;
+        const startX = (e.clientX - canvasPosition.x) / scale - element.position.x;
+        const startY = (e.clientY - canvasPosition.y) / scale - element.position.y;
         const originalPosition = {...element.position};
 
         const handleDragMove = (e: MouseEvent) => {
@@ -92,8 +96,8 @@ export function useElementInteraction(
                     return {
                         ...el,
                         position: {
-                            x: e.clientX - startX,
-                            y: e.clientY - startY
+                            x: (e.clientX - canvasPosition.x) / scale - startX,
+                            y: (e.clientY - canvasPosition.y) / scale - startY
                         }
                     };
                 }
@@ -104,8 +108,8 @@ export function useElementInteraction(
 
         const handleDragEnd = (e: MouseEvent) => {
             const newPosition = {
-                x: e.clientX - startX,
-                y: e.clientY - startY
+                x: (e.clientX - canvasPosition.x) / scale - startX,
+                y: (e.clientY - canvasPosition.y) / scale - startY
             };
 
             const finalElements = elements.map(el => {
@@ -128,7 +132,7 @@ export function useElementInteraction(
 
         document.addEventListener('mousemove', handleDragMove);
         document.addEventListener('mouseup', handleDragEnd);
-    }, [elements, setElements, addToHistory]);
+    }, [elements, setElements, addToHistory, scale, canvasPosition]);
 
     return {
         handleMouseDown,

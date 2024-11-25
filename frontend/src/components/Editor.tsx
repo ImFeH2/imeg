@@ -1,5 +1,4 @@
 import {useEditorState} from '../hooks/useEditorState';
-import {useElementInteraction} from '../hooks/useElementInteraction';
 import {Toolbar} from './Toolbar';
 import {ComponentsSidebar} from './ComponentsSidebar';
 import {PropertiesPanel} from './PropertiesPanel';
@@ -9,7 +8,7 @@ import {componentsData} from '../constants/components';
 import {ComponentProps, PageSettings} from '../types';
 import {useEffect, useState} from 'react';
 import {XCircle} from 'lucide-react';
-import Canvas from "@/components/Canvas.tsx";
+import Canvas from "./Canvas";
 
 const defaultPageSettings: PageSettings = {
     responsive: true,
@@ -40,41 +39,10 @@ export default function Editor() {
         historyIndex,
         history,
         addToHistory,
+        resetHistory,
         undo,
-        redo,
-        resetHistory
+        redo
     } = useEditorState();
-
-    const {handleMouseDown, handleDragStart} = useElementInteraction(
-        elements,
-        setElements,
-        addToHistory
-    );
-
-    useEffect(() => {
-        const loadContent = async () => {
-            try {
-                const response = await fetch('http://localhost:3000/api/page');
-                const data = await response.json();
-
-                if (!data.success) {
-                    throw new Error(data.error || 'Failed to load page content');
-                }
-
-                if (data.data) {
-                    setElements(data.data.elements || []);
-                    setPageSettings(data.data.settings || defaultPageSettings);
-                    resetHistory(data.data.elements || []);
-                }
-            } catch (error) {
-                setError(error instanceof Error ? error.message : 'Failed to load page content');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        loadContent();
-    }, []);
 
     const addElement = (type: string) => {
         const componentData = componentsData.find(c => c.id === type);
@@ -293,8 +261,8 @@ export default function Editor() {
                             setShowProperties(true);
                         }}
                         onElementDelete={deleteElement}
-                        onMouseDown={handleMouseDown}
-                        onDragStart={handleDragStart}
+                        setElements={setElements}
+                        addToHistory={addToHistory}
                     />
                 </div>
 
