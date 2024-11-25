@@ -40,6 +40,23 @@ const Canvas = ({
     }, []);
 
     useEffect(() => {
+        const handleMouseLeave = () => {
+            setIsMouseOverElement(false);
+        };
+
+        const elements = document.querySelectorAll('.element-container');
+        elements.forEach(element => {
+            element.addEventListener('mouseleave', handleMouseLeave);
+        });
+
+        return () => {
+            elements.forEach(element => {
+                element.removeEventListener('mouseleave', handleMouseLeave);
+            });
+        };
+    }, [elements]);
+
+    useEffect(() => {
         const calculateInitialScale = () => {
             if (!containerRef.current) return;
             const containerWidth = containerRef.current.clientWidth - 64;
@@ -85,6 +102,7 @@ const Canvas = ({
     const handleCanvasClick = (e: React.MouseEvent) => {
         if (e.target === containerRef.current || e.target === canvasRef.current) {
             onElementSelect(null);
+            setIsMouseOverElement(false);
         }
     };
 
@@ -113,6 +131,7 @@ const Canvas = ({
             setIsDragging(false);
             document.body.style.cursor = 'default';
         }
+        setIsMouseOverElement(false);
     };
 
     useEffect(() => {
@@ -126,6 +145,7 @@ const Canvas = ({
             const handleGlobalMouseUp = () => {
                 setIsDragging(false);
                 document.body.style.cursor = 'default';
+                setIsMouseOverElement(false); // 全局鼠标松开时重置状态
             };
 
             document.addEventListener('mousemove', handleGlobalMouseMove);
