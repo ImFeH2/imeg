@@ -1,4 +1,4 @@
-import {Eye, LayoutTemplate, Pencil, Redo, Save, Settings, Sidebar, Undo} from 'lucide-react';
+import {Download, Eye, LayoutTemplate, Pencil, Redo, Save, Settings, Sidebar, Undo} from 'lucide-react';
 
 interface ToolbarProps {
     showSidebar: boolean;
@@ -14,7 +14,9 @@ interface ToolbarProps {
     onUndo: () => void;
     onRedo: () => void;
     onSave: () => void;
+    onLoad: () => void;
     isSaving: boolean;
+    isLoading: boolean;
 }
 
 export function Toolbar({
@@ -31,7 +33,9 @@ export function Toolbar({
                             onUndo,
                             onRedo,
                             onSave,
-                            isSaving
+                            onLoad,
+                            isSaving,
+                            isLoading
                         }: ToolbarProps) {
     return (
         <div className="fixed top-0 left-0 right-0 h-12 bg-white border-b flex items-center px-4 z-10">
@@ -79,6 +83,15 @@ export function Toolbar({
                 </button>
 
                 <div className="h-6 w-px bg-gray-300 mx-2"/>
+
+                <button
+                    onClick={onLoad}
+                    disabled={isLoading}
+                    className={`p-2 hover:bg-gray-100 rounded flex items-center space-x-1
+                        ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                    <Download size={20} className={isLoading ? 'animate-bounce' : ''}/>
+                </button>
 
                 <button
                     onClick={onSave}

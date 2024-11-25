@@ -21,7 +21,7 @@ const defaultPageSettings: PageSettings = {
 
 export default function Editor() {
     const [isSaving, setIsSaving] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showPageSettings, setShowPageSettings] = useState(false);
     const [pageSettings, setPageSettings] = useState<PageSettings>(defaultPageSettings);
@@ -150,6 +150,44 @@ export default function Editor() {
         setPageSettings(newSettings);
     };
 
+    const loadContent = async () => {
+        try {
+            const response = await fetch('http://localhost:3000/api/page');
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to load page content');
+            }
+
+            if (data.data) {
+                setElements(data.data.elements || []);
+                setPageSettings(data.data.settings || defaultPageSettings);
+                resetHistory(data.data.elements || []);
+                setSelectedElement(null);
+                setShowProperties(false);
+            }
+        } catch (error) {
+            setError(error instanceof Error ? error.message : 'Failed to load page content');
+            setTimeout(() => setError(null), 5000); // Clear error after 5 seconds
+        }
+    };
+
+    useEffect(() => {
+        const initializeEditor = async () => {
+            setIsLoading(true);
+            await loadContent();
+            setIsLoading(false);
+        };
+
+        initializeEditor();
+    }, []);
+
+    const handleLoad = async () => {
+        setIsLoading(true);
+        await loadContent();
+        setIsLoading(false);
+    };
+
     const updateElementPosition = (axis: 'x' | 'y', value: number) => {
         const newElements = elements.map(el =>
             el.id === selectedElement?.id
@@ -200,17 +238,6 @@ export default function Editor() {
         };
     };
 
-    if (isLoading) {
-        return (
-            <div className="h-screen flex items-center justify-center bg-gray-50">
-                <div className="flex flex-col items-center space-y-4">
-                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/>
-                    <div className="text-gray-600">Loading editor content...</div>
-                </div>
-            </div>
-        );
-    }
-
     if (isPreview) {
         return (
             <PreviewMode
@@ -237,11 +264,13 @@ export default function Editor() {
                 onUndo={undo}
                 onRedo={redo}
                 onSave={handleSave}
+                onLoad={handleLoad}
                 isSaving={isSaving}
+                isLoading={isLoading}
             />
 
             {error && (
-                <div className="fixed top-14 right-4 w-96 bg-red-50 border-l-4 border-red-500 p-4 rounded shadow-lg">
+                <div className="fixed top-14 right-4 w-96 bg-red-50 border-l-4 border-red-500 p-4 rounded shadow-lg z-50">
                     <div className="flex items-start">
                         <div className="flex-shrink-0">
                             <XCircle className="h-5 w-5 text-red-500"/>
@@ -249,6 +278,15 @@ export default function Editor() {
                         <div className="ml-3">
                             <p className="text-sm text-red-700">{error}</p>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {isLoading && (
+                <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
+                    <div className="flex flex-col items-center space-y-4">
+                        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+                        <div className="text-gray-600">Loading content...</div>
                     </div>
                 </div>
             )}
