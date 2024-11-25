@@ -6,7 +6,7 @@ interface CanvasProps {
     elements: Element[];
     pageSettings: PageSettings;
     selectedElement: Element | null;
-    onElementSelect: (element: Element) => void;
+    onElementSelect: (element: Element | null) => void;
     onElementDelete: (id: number) => void;
     onMouseDown: (e: React.MouseEvent, elementId: number, corner: string) => void;
     onDragStart: (e: React.MouseEvent, elementId: number) => void;
@@ -29,26 +29,19 @@ const Canvas = ({
     const lastPosition = useRef({x: 0, y: 0});
     const [isMouseOverElement, setIsMouseOverElement] = useState(false);
 
-    // 禁用浏览器默认缩放
     useEffect(() => {
         const preventDefault = (e: WheelEvent) => {
             if (e.ctrlKey || e.metaKey) {
                 e.preventDefault();
             }
         };
-
         document.addEventListener('wheel', preventDefault, {passive: false});
-
-        return () => {
-            document.removeEventListener('wheel', preventDefault);
-        };
+        return () => document.removeEventListener('wheel', preventDefault);
     }, []);
 
-    // 计算初始缩放比例以适应容器
     useEffect(() => {
         const calculateInitialScale = () => {
             if (!containerRef.current) return;
-
             const containerWidth = containerRef.current.clientWidth - 64;
             const containerHeight = containerRef.current.clientHeight - 64;
             const pageWidth = pageSettings.responsive ? 1200 : pageSettings.width;
@@ -60,7 +53,6 @@ const Canvas = ({
 
             setScale(newScale);
 
-            // 居中画布
             const scaledWidth = pageWidth * newScale;
             const scaledHeight = pageHeight * newScale;
             const x = (containerWidth - scaledWidth) / 2;
@@ -73,24 +65,15 @@ const Canvas = ({
         return () => window.removeEventListener('resize', calculateInitialScale);
     }, [pageSettings]);
 
-    // 处理鼠标滚轮缩放
     const handleWheel = (e: React.WheelEvent) => {
-        if (isMouseOverElement) return; // 如果鼠标在元素上，不进行缩放
-
-        // 降低缩放速度
+        if (isMouseOverElement) return;
         const delta = e.deltaY * -0.002;
-
-        // 获取鼠标相对于画布的位置
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return;
 
         const mouseX = e.clientX - rect.left - position.x;
         const mouseY = e.clientY - rect.top - position.y;
-
-        // 计算新的缩放比例
         const newScale = Math.min(Math.max(0.1, scale + delta), 2);
-
-        // 计算缩放后鼠标位置的偏移，保持鼠标指向的点不变
         const scaleDiff = newScale - scale;
         const newX = position.x - (mouseX * scaleDiff);
         const newY = position.y - (mouseY * scaleDiff);
@@ -99,9 +82,13 @@ const Canvas = ({
         setPosition({x: newX, y: newY});
     };
 
-    // 处理画布拖动开始
+    const handleCanvasClick = (e: React.MouseEvent) => {
+        if (e.target === containerRef.current || e.target === canvasRef.current) {
+            onElementSelect(null);
+        }
+    };
+
     const handleMouseDown = (e: React.MouseEvent) => {
-        // 如果点击的是画布而不是元素，开始拖动
         if (e.target === containerRef.current || e.target === canvasRef.current) {
             e.preventDefault();
             setIsDragging(true);
@@ -113,7 +100,6 @@ const Canvas = ({
         }
     };
 
-    // 处理画布拖动
     const handleMouseMove = (e: React.MouseEvent) => {
         if (isDragging) {
             const newX = e.clientX - lastPosition.current.x;
@@ -122,7 +108,6 @@ const Canvas = ({
         }
     };
 
-    // 处理画布拖动结束
     const handleMouseUp = () => {
         if (isDragging) {
             setIsDragging(false);
@@ -130,7 +115,6 @@ const Canvas = ({
         }
     };
 
-    // 监听全局鼠标事件，以防止拖动时鼠标移出画布
     useEffect(() => {
         if (isDragging) {
             const handleGlobalMouseMove = (e: MouseEvent) => {
@@ -165,7 +149,6 @@ const Canvas = ({
             height: pageSettings.responsive ? '800px' : `${pageSettings.height}px`,
             boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
         };
-
         return baseStyle;
     };
 
@@ -178,6 +161,7 @@ const Canvas = ({
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
+            onClick={handleCanvasClick}
             style={{cursor: isDragging ? 'grabbing' : 'grab'}}
         >
             <div className="absolute right-4 bottom-4 bg-white px-2 py-1 rounded shadow text-sm">
