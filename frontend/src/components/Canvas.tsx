@@ -9,6 +9,7 @@ interface CanvasProps {
     onElementSelect: (element: Element | null) => void;
     onElementUpdate: (element: Element) => void;
     onElementDelete: (id: number) => void;
+    onDropComponent: (componentId: string, x: number, y: number) => void;
 }
 
 const Canvas = ({
@@ -17,7 +18,8 @@ const Canvas = ({
                     selectedElement,
                     onElementSelect,
                     onElementUpdate,
-                    onElementDelete
+                    onElementDelete,
+                    onDropComponent
                 }: CanvasProps) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -237,6 +239,25 @@ const Canvas = ({
         boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
     });
 
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        if (e.target === canvasRef.current) {
+            const componentId = e.dataTransfer.getData('componentId');
+            if (!componentId) return;
+
+            const canvasRect = canvasRef.current.getBoundingClientRect();
+            const x = (e.clientX - canvasRect.left - position.x) / scale;
+            const y = (e.clientY - canvasRect.top - position.y) / scale;
+
+            onDropComponent(componentId, x, y);
+        }
+    };
+
     return (
         <div
             ref={containerRef}
@@ -259,6 +280,8 @@ const Canvas = ({
                 ref={canvasRef}
                 className="bg-white rounded-lg"
                 style={getCanvasStyle()}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
             >
                 {elements.map(element => (
                     <ElementRenderer

@@ -4,7 +4,7 @@ import {useEffect, useMemo, useRef, useState} from 'react';
 
 interface ComponentsSidebarProps {
     components: ComponentData[];
-    onAddElement: (componentId: string) => void;
+    onAddElement: (componentId: string, x: number, y: number) => void;
 }
 
 export function ComponentsSidebar({
@@ -56,7 +56,6 @@ export function ComponentsSidebar({
         return filtered;
     }, [components, searchQuery, selectedCategory]);
 
-    // Handle mouse events for dragging
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
             if (!isDragging || !categoriesRef.current) return;
@@ -86,7 +85,6 @@ export function ComponentsSidebar({
         };
     }, [isDragging]);
 
-    // Handle drag start
     const handleMouseDown = (e: React.MouseEvent) => {
         e.preventDefault();
         setIsDragging(true);
@@ -94,12 +92,27 @@ export function ComponentsSidebar({
         scrollLeft.current = categoriesRef.current?.scrollLeft || 0;
     };
 
-    // Handle wheel scroll
     const handleWheel = (e: React.WheelEvent) => {
         e.preventDefault();
         if (categoriesRef.current) {
             categoriesRef.current.scrollLeft += e.deltaY;
         }
+    };
+
+    const handleDragStart = (e: React.DragEvent<HTMLButtonElement>, componentId: string) => {
+        e.dataTransfer.setData('componentId', componentId);
+        e.dataTransfer.effectAllowed = 'copy';
+
+        // Create a custom drag image
+        const dragImage = document.createElement('div');
+        dragImage.className = 'bg-white border rounded-lg shadow-lg p-2 text-sm';
+        dragImage.textContent = components.find(c => c.id === componentId)?.name || 'Component';
+        document.body.appendChild(dragImage);
+        e.dataTransfer.setDragImage(dragImage, 0, 0);
+
+        setTimeout(() => {
+            document.body.removeChild(dragImage);
+        }, 0);
     };
 
     return (
@@ -125,8 +138,8 @@ export function ComponentsSidebar({
                 style={{
                     cursor: isDragging ? 'grabbing' : 'grab',
                     userSelect: 'none',
-                    msOverflowStyle: 'none',  /* Hide scrollbar IE and Edge */
-                    scrollbarWidth: 'none',  /* Hide scrollbar Firefox */
+                    msOverflowStyle: 'none',
+                    scrollbarWidth: 'none',
                     WebkitOverflowScrolling: 'touch',
                 }}
                 onMouseDown={handleMouseDown}
@@ -163,8 +176,10 @@ export function ComponentsSidebar({
                     {filteredComponents.map((component) => (
                         <button
                             key={component.id}
-                            onClick={() => onAddElement(component.id)}
-                            className="p-3 flex flex-col items-center justify-center space-y-2 bg-white border rounded-lg hover:border-blue-500 hover:shadow-sm transition-all duration-200"
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, component.id)}
+                            onClick={() => onAddElement(component.id, 100, 100)}
+                            className="p-3 flex flex-col items-center justify-center space-y-2 bg-white border rounded-lg hover:border-blue-500 hover:shadow-sm transition-all duration-200 cursor-move"
                             title={component.description}
                         >
                             <span className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-md text-lg">

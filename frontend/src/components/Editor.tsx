@@ -67,7 +67,7 @@ export default function Editor() {
         loadContent();
     }, []);
 
-    const addElement = (type: string) => {
+    const addElement = (type: string, x: number = 100, y: number = 100) => {
         const componentData = componentsData.find(c => c.id === type);
         if (!componentData) return;
 
@@ -75,8 +75,8 @@ export default function Editor() {
             id: Date.now(),
             type,
             properties: {
-                x: 100,
-                y: 100,
+                x,
+                y,
                 width: 200,
                 height: 100,
                 ...Object.fromEntries(
@@ -226,6 +226,7 @@ export default function Editor() {
                             addToHistory(newElements);
                         }}
                         onElementDelete={deleteElement}
+                        onDropComponent={addElement}
                     />
                 </div>
 
