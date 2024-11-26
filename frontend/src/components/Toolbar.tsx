@@ -1,4 +1,4 @@
-import {LayoutTemplate, Redo, Save, Settings, Sidebar, Undo} from 'lucide-react';
+import {LayoutTemplate, Redo, RotateCw, Save, Settings, Sidebar, Undo} from 'lucide-react';
 
 interface ToolbarProps {
     showSidebar: boolean;
@@ -29,7 +29,9 @@ export function Toolbar({
                             onUndo,
                             onRedo,
                             onSave,
-                            isSaving
+                            onLoad,
+                            isSaving,
+                            isLoading
                         }: ToolbarProps) {
     return (
         <div className="fixed top-0 left-0 right-0 h-12 bg-white border-b flex items-center px-4 z-10">
@@ -80,6 +82,18 @@ export function Toolbar({
                 >
                     <Save size={20}/>
                     {isSaving && (
+                        <div className="ml-1 w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"/>
+                    )}
+                </button>
+
+                <button
+                    onClick={onLoad}
+                    disabled={isLoading}
+                    className={`p-2 hover:bg-gray-100 rounded flex items-center space-x-1
+                        ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                    <RotateCw size={20}/>
+                    {isLoading && (
                         <div className="ml-1 w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"/>
                     )}
                 </button>
