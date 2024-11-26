@@ -3,12 +3,12 @@ import {Toolbar} from './Toolbar';
 import {ComponentsSidebar} from './ComponentsSidebar';
 import {PropertiesPanel} from './PropertiesPanel';
 import PageSettingsPanel from './PageSettingsPanel';
-import PreviewMode from './PreviewMode';
 import {componentsData} from '../constants/components';
 import {ComponentProps, PageSettings} from '../types';
 import {useEffect, useState} from 'react';
 import {XCircle} from 'lucide-react';
-import Canvas from "./Canvas";
+import Canvas from "@/components/Canvas.tsx";
+import {isEqual} from "lodash";
 
 const defaultPageSettings: PageSettings = {
     responsive: true,
@@ -26,8 +26,6 @@ export default function Editor() {
     const [pageSettings, setPageSettings] = useState<PageSettings>(defaultPageSettings);
 
     const {
-        isPreview,
-        setIsPreview,
         showSidebar,
         setShowSidebar,
         showProperties,
@@ -39,10 +37,35 @@ export default function Editor() {
         historyIndex,
         history,
         addToHistory,
-        resetHistory,
         undo,
-        redo
+        redo,
+        resetHistory
     } = useEditorState();
+
+    useEffect(() => {
+        const loadContent = async () => {
+            try {
+                const response = await fetch('http://localhost:3000/api/page');
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load page content');
+                }
+
+                if (data.data) {
+                    setElements(data.data.elements || []);
+                    setPageSettings(data.data.settings || defaultPageSettings);
+                    resetHistory(data.data.elements || []);
+                }
+            } catch (error) {
+                setError(error instanceof Error ? error.message : 'Failed to load page content');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadContent();
+    }, []);
 
     const addElement = (type: string) => {
         const componentData = componentsData.find(c => c.id === type);
@@ -190,16 +213,6 @@ export default function Editor() {
         addToHistory(newElements);
     };
 
-    if (isPreview) {
-        return (
-            <PreviewMode
-                elements={elements}
-                pageSettings={pageSettings}
-                onExitPreview={() => setIsPreview(false)}
-            />
-        );
-    }
-
     return (
         <div className="h-screen flex">
             <Toolbar
@@ -209,8 +222,6 @@ export default function Editor() {
                 setShowProperties={setShowProperties}
                 showPageSettings={showPageSettings}
                 setShowPageSettings={setShowPageSettings}
-                isPreview={isPreview}
-                setIsPreview={setIsPreview}
                 canUndo={historyIndex > 0}
                 canRedo={historyIndex < history.length - 1}
                 onUndo={undo}
@@ -261,8 +272,127 @@ export default function Editor() {
                             setShowProperties(true);
                         }}
                         onElementDelete={deleteElement}
-                        setElements={setElements}
-                        addToHistory={addToHistory}
+                        onMouseDown={(e, elementId, corner) => {
+                            // Handle mouse down
+                            const element = elements.find(el => el.id === elementId);
+                            if (!element) return;
+
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const originalElement = {...element};
+
+                            const handleMouseMove = (moveEvent: MouseEvent) => {
+                                const deltaX = moveEvent.clientX - startX;
+                                const deltaY = moveEvent.clientY - startY;
+
+                                const newElements = elements.map(el => {
+                                    if (el.id === elementId) {
+                                        let newSize = {...element.size};
+                                        let newPosition = {...element.position};
+
+                                        switch (corner) {
+                                            case 'top-left':
+                                                newSize.width = Math.max(50, element.size.width - deltaX);
+                                                newSize.height = Math.max(50, element.size.height - deltaY);
+                                                newPosition.x = element.position.x + (element.size.width - newSize.width);
+                                                newPosition.y = element.position.y + (element.size.height - newSize.height);
+                                                break;
+
+                                            case 'top-right':
+                                                newSize.width = Math.max(50, element.size.width + deltaX);
+                                                newSize.height = Math.max(50, element.size.height - deltaY);
+                                                newPosition.y = element.position.y + (element.size.height - newSize.height);
+                                                break;
+
+                                            case 'bottom-left':
+                                                newSize.width = Math.max(50, element.size.width - deltaX);
+                                                newSize.height = Math.max(50, element.size.height + deltaY);
+                                                newPosition.x = element.position.x + (element.size.width - newSize.width);
+                                                break;
+
+                                            case 'bottom-right':
+                                                newSize.width = Math.max(50, element.size.width + deltaX);
+                                                newSize.height = Math.max(50, element.size.height + deltaY);
+                                                break;
+                                        }
+
+                                        return {
+                                            ...el,
+                                            size: newSize,
+                                            position: newPosition
+                                        };
+                                    }
+                                    return el;
+                                });
+
+                                setElements(newElements);
+                            };
+
+                            const handleMouseUp = () => {
+                                const finalElement = elements.find(el => el.id === elementId);
+                                if (!isEqual(originalElement.position, finalElement?.position) ||
+                                    !isEqual(originalElement.size, finalElement?.size)) {
+                                    addToHistory(elements);
+                                }
+                                document.removeEventListener('mousemove', handleMouseMove);
+                                document.removeEventListener('mouseup', handleMouseUp);
+                            };
+
+                            document.addEventListener('mousemove', handleMouseMove);
+                            document.addEventListener('mouseup', handleMouseUp);
+                        }}
+                        onDragStart={(e, elementId) => {
+                            // Handle drag start
+                            const element = elements.find(el => el.id === elementId);
+                            if (!element) return;
+
+                            const startX = e.clientX - element.position.x;
+                            const startY = e.clientY - element.position.y;
+                            const originalPosition = {...element.position};
+
+                            const handleDragMove = (e: MouseEvent) => {
+                                const newElements = elements.map(el => {
+                                    if (el.id === elementId) {
+                                        return {
+                                            ...el,
+                                            position: {
+                                                x: e.clientX - startX,
+                                                y: e.clientY - startY
+                                            }
+                                        };
+                                    }
+                                    return el;
+                                });
+                                setElements(newElements);
+                            };
+
+                            const handleDragEnd = (e: MouseEvent) => {
+                                const newPosition = {
+                                    x: e.clientX - startX,
+                                    y: e.clientY - startY
+                                };
+
+                                const finalElements = elements.map(el => {
+                                    if (el.id === elementId) {
+                                        return {
+                                            ...el,
+                                            position: newPosition
+                                        };
+                                    }
+                                    return el;
+                                });
+
+                                if (!isEqual(originalPosition, newPosition)) {
+                                    setElements(finalElements);
+                                    addToHistory(finalElements);
+                                }
+                                document.removeEventListener('mousemove', handleDragMove);
+                                document.removeEventListener('mouseup', handleDragEnd);
+                            };
+
+                            document.addEventListener('mousemove', handleDragMove);
+                            document.addEventListener('mouseup', handleDragEnd);
+                        }}
                     />
                 </div>
 

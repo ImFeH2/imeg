@@ -1,7 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {Element, PageSettings} from '../types';
 import {ElementRenderer} from './ElementRenderer';
-import {useElementInteraction} from '../hooks/useElementInteraction';
 
 interface CanvasProps {
     elements: Element[];
@@ -9,8 +8,8 @@ interface CanvasProps {
     selectedElement: Element | null;
     onElementSelect: (element: Element | null) => void;
     onElementDelete: (id: number) => void;
-    setElements: (elements: Element[]) => void;
-    addToHistory: (elements: Element[]) => void;
+    onMouseDown: (e: React.MouseEvent, elementId: number, corner: string) => void;
+    onDragStart: (e: React.MouseEvent, elementId: number) => void;
 }
 
 const Canvas = ({
@@ -19,8 +18,8 @@ const Canvas = ({
                     selectedElement,
                     onElementSelect,
                     onElementDelete,
-                    setElements,
-                    addToHistory
+                    onMouseDown,
+                    onDragStart
                 }: CanvasProps) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -30,13 +29,15 @@ const Canvas = ({
     const lastPosition = useRef({x: 0, y: 0});
     const [isMouseOverElement, setIsMouseOverElement] = useState(false);
 
-    const {handleMouseDown, handleDragStart} = useElementInteraction(
-        elements,
-        setElements,
-        addToHistory,
-        scale,
-        position
-    );
+    useEffect(() => {
+        const preventDefault = (e: WheelEvent) => {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+            }
+        };
+        document.addEventListener('wheel', preventDefault, {passive: false});
+        return () => document.removeEventListener('wheel', preventDefault);
+    }, []);
 
     useEffect(() => {
         const handleMouseLeave = () => {
@@ -58,7 +59,6 @@ const Canvas = ({
     useEffect(() => {
         const calculateInitialScale = () => {
             if (!containerRef.current) return;
-
             const containerWidth = containerRef.current.clientWidth - 64;
             const containerHeight = containerRef.current.clientHeight - 64;
             const pageWidth = pageSettings.responsive ? 1200 : pageSettings.width;
@@ -84,17 +84,13 @@ const Canvas = ({
 
     const handleWheel = (e: React.WheelEvent) => {
         if (isMouseOverElement) return;
-
-        e.preventDefault();
+        const delta = e.deltaY * -0.002;
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return;
 
         const mouseX = e.clientX - rect.left - position.x;
         const mouseY = e.clientY - rect.top - position.y;
-
-        const delta = e.deltaY * -0.001;
         const newScale = Math.min(Math.max(0.1, scale + delta), 2);
-
         const scaleDiff = newScale - scale;
         const newX = position.x - (mouseX * scaleDiff);
         const newY = position.y - (mouseY * scaleDiff);
@@ -110,7 +106,7 @@ const Canvas = ({
         }
     };
 
-    const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    const handleMouseDown = (e: React.MouseEvent) => {
         if (e.target === containerRef.current || e.target === canvasRef.current) {
             e.preventDefault();
             setIsDragging(true);
@@ -122,7 +118,7 @@ const Canvas = ({
         }
     };
 
-    const handleCanvasMouseMove = (e: React.MouseEvent) => {
+    const handleMouseMove = (e: React.MouseEvent) => {
         if (isDragging) {
             const newX = e.clientX - lastPosition.current.x;
             const newY = e.clientY - lastPosition.current.y;
@@ -130,7 +126,7 @@ const Canvas = ({
         }
     };
 
-    const handleCanvasMouseUp = () => {
+    const handleMouseUp = () => {
         if (isDragging) {
             setIsDragging(false);
             document.body.style.cursor = 'default';
@@ -181,40 +177,41 @@ const Canvas = ({
             ref={containerRef}
             className="relative w-full h-full overflow-hidden bg-gray-100"
             onWheel={handleWheel}
-            onMouseDown={handleCanvasMouseDown}
-            onMouseMove={handleCanvasMouseMove}
-            onMouseUp={handleCanvasMouseUp}
-            onMouseLeave={handleCanvasMouseUp}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
             onClick={handleCanvasClick}
             style={{cursor: isDragging ? 'grabbing' : 'grab'}}
         >
-            {/* Zoom indicator */}
             <div className="absolute right-4 bottom-4 bg-white px-2 py-1 rounded shadow text-sm z-10">
                 {Math.round(scale * 100)}%
             </div>
-
-            {/* Canvas */}
             <div
                 ref={canvasRef}
                 className="bg-white rounded-lg"
                 style={getCanvasStyle()}
             >
-                {/* Elements */}
                 {elements.map(element => (
                     <ElementRenderer
                         key={element.id}
-                        element={element}
+                        element={{
+                            ...element,
+                            position: {
+                                x: element.position.x,
+                                y: element.position.y
+                            }
+                        }}
                         isSelected={selectedElement?.id === element.id}
-                        isPreview={false}
                         onSelect={() => onElementSelect(element)}
                         onDelete={() => onElementDelete(element.id)}
                         onMouseDown={(e, corner) => {
                             setIsMouseOverElement(true);
-                            handleMouseDown(e, element.id, corner);
+                            onMouseDown(e, element.id, corner);
                         }}
                         onDragStart={(e) => {
                             setIsMouseOverElement(true);
-                            handleDragStart(e, element.id);
+                            onDragStart(e, element.id);
                         }}
                     />
                 ))}

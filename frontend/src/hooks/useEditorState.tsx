@@ -2,7 +2,6 @@ import {useState} from 'react';
 import {Element} from '../types';
 
 export function useEditorState() {
-    const [isPreview, setIsPreview] = useState(false);
     const [showSidebar, setShowSidebar] = useState(true);
     const [showProperties, setShowProperties] = useState(false);
     const [elements, setElements] = useState<Element[]>([]);
@@ -37,8 +36,6 @@ export function useEditorState() {
     };
 
     return {
-        isPreview,
-        setIsPreview,
         showSidebar,
         setShowSidebar,
         showProperties,

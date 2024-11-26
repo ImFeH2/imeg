@@ -4,7 +4,6 @@ import {Element} from '../types';
 interface ElementRendererProps {
     element: Element;
     isSelected: boolean;
-    isPreview: boolean;
     onSelect: () => void;
     onDelete: () => void;
     onMouseDown: (e: React.MouseEvent, corner: string) => void;
@@ -168,7 +167,6 @@ interface TextareaProps {
 export function ElementRenderer({
                                     element,
                                     isSelected,
-                                    isPreview,
                                     onSelect,
                                     onDelete,
                                     onMouseDown,
@@ -199,7 +197,7 @@ export function ElementRenderer({
                             height: '100%',
                             padding: '8px',
                             fontWeight: props.fontWeight,
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                     >
                         {props.text}
@@ -220,7 +218,7 @@ export function ElementRenderer({
                             fontWeight: props.fontWeight,
                             margin: 0,
                             padding: '8px',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                     >
                         {props.text}
@@ -238,7 +236,7 @@ export function ElementRenderer({
                             color: props.color,
                             margin: 0,
                             padding: '8px',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                     >
                         {props.text}
@@ -258,8 +256,8 @@ export function ElementRenderer({
                             border: 'none',
                             borderRadius: `${props.borderRadius}px`,
                             fontSize: `${props.fontSize}px`,
-                            cursor: isPreview ? 'pointer' : 'move',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            cursor: 'move',
+                            pointerEvents: 'none',
                         }}
                     >
                         {props.text}
@@ -271,15 +269,15 @@ export function ElementRenderer({
                 const props = element.props as LinkProps;
                 return (
                     <a
-                        href={isPreview ? props.href : '#'}
+                        href="#"
                         style={{
                             color: props.color,
                             textDecoration: props.textDecoration,
                             fontSize: `${props.fontSize}px`,
                             display: 'block',
                             padding: '8px',
-                            cursor: isPreview ? 'pointer' : 'move',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            cursor: 'move',
+                            pointerEvents: 'none',
                         }}
                     >
                         {props.text}
@@ -297,7 +295,7 @@ export function ElementRenderer({
                             width: '100%',
                             height: '100%',
                             objectFit: props.objectFit as 'cover' | 'contain',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                         draggable={false}
                     />
@@ -315,7 +313,7 @@ export function ElementRenderer({
                         style={{
                             width: '100%',
                             height: '100%',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                     />
                 );
@@ -331,7 +329,7 @@ export function ElementRenderer({
                         loop={props.loop}
                         style={{
                             width: '100%',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                     />
                 );
@@ -348,7 +346,7 @@ export function ElementRenderer({
                             padding: `${props.padding}px`,
                             width: '100%',
                             height: '100%',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                     />
                 );
@@ -365,7 +363,7 @@ export function ElementRenderer({
                             marginBottom: `${props.marginBottom}px`,
                             width: '100%',
                             height: '100%',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                     />
                 );
@@ -383,7 +381,7 @@ export function ElementRenderer({
                             margin: 0,
                             height: '100%',
                             overflowY: 'auto',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                     >
                         {props.items.map((item, index) => (
@@ -403,7 +401,7 @@ export function ElementRenderer({
                             style={{
                                 width: '100%',
                                 borderCollapse: 'collapse',
-                                pointerEvents: isPreview ? 'auto' : 'none',
+                                pointerEvents: 'none',
                             }}
                         >
                             <thead>
@@ -454,7 +452,7 @@ export function ElementRenderer({
                             border: `1px solid ${props.borderColor}`,
                             borderRadius: `${props.borderRadius}px`,
                             padding: '0 8px',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                     >
                         {props.options.map((option, index) => (
@@ -472,7 +470,7 @@ export function ElementRenderer({
                             display: 'flex',
                             alignItems: 'center',
                             padding: '8px',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                     >
                         <input
@@ -498,7 +496,7 @@ export function ElementRenderer({
                             display: 'flex',
                             alignItems: 'center',
                             padding: '8px',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                     >
                         <input
@@ -528,7 +526,7 @@ export function ElementRenderer({
                             display: 'flex',
                             gap: `${props.spacing}px`,
                             alignItems: 'center',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                     >
                         {props.items.map((item, index) => (
@@ -560,7 +558,7 @@ export function ElementRenderer({
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                     >
                         {props.text}
@@ -578,7 +576,7 @@ export function ElementRenderer({
                             width: '100%',
                             height: '100%',
                             textAlign: props.textAlign as 'center' | 'left' | 'right',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                     >
                         <h1 style={{margin: '0 0 8px 0'}}>{props.title}</h1>
@@ -599,9 +597,9 @@ export function ElementRenderer({
                             border: `1px solid ${props.borderColor}`,
                             borderRadius: `${props.borderRadius}px`,
                             padding: '0 8px',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
-                        readOnly={!isPreview}
+                        readOnly
                     />
                 );
             }
@@ -619,9 +617,9 @@ export function ElementRenderer({
                             borderRadius: `${props.borderRadius}px`,
                             padding: '8px',
                             resize: 'none',
-                            pointerEvents: isPreview ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
-                        readOnly={!isPreview}
+                        readOnly
                     />
                 );
             }
@@ -634,77 +632,71 @@ export function ElementRenderer({
     return (
         <div
             style={style}
-            className={`absolute ${isPreview ? '' : 'border border-gray-200'} ${
-                isSelected && !isPreview ? 'ring-2 ring-blue-500' : ''
+            className={`absolute border border-gray-200 ${
+                isSelected ? 'ring-2 ring-blue-500' : ''
             }`}
             onClick={(e) => {
                 e.preventDefault();
                 onSelect();
             }}
             onMouseDown={(e) => {
-                if (!isPreview) {
-                    e.preventDefault();
-                }
+                e.preventDefault();
             }}
         >
-            {!isPreview && (
-                <>
-                    <div
-                        className="absolute -top-6 left-0 right-0 flex items-center justify-between bg-blue-500 text-white text-xs px-2 py-1 rounded-t"
-                        onMouseDown={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                        }}
-                    >
-                        <span>{element.type}</span>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                onDelete();
-                            }}
-                            className="hover:bg-blue-600 p-1 rounded"
-                        >
-                            <Trash2 size={12}/>
-                        </button>
-                    </div>
-                    <div
-                        className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 cursor-nw-resize"
-                        onMouseDown={(e) => {
-                            e.preventDefault();
-                            onMouseDown(e, 'top-left');
-                        }}
-                    />
-                    <div
-                        className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 cursor-ne-resize"
-                        onMouseDown={(e) => {
-                            e.preventDefault();
-                            onMouseDown(e, 'top-right');
-                        }}
-                    />
-                    <div
-                        className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 cursor-sw-resize"
-                        onMouseDown={(e) => {
-                            e.preventDefault();
-                            onMouseDown(e, 'bottom-left');
-                        }}
-                    />
-                    <div
-                        className="absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 cursor-se-resize"
-                        onMouseDown={(e) => {
-                            e.preventDefault();
-                            onMouseDown(e, 'bottom-right');
-                        }}
-                    />
-                </>
-            )}
             <div
-                className={`w-full h-full ${!isPreview ? 'cursor-move' : ''}`}
+                className="absolute -top-6 left-0 right-0 flex items-center justify-between bg-blue-500 text-white text-xs px-2 py-1 rounded-t"
                 onMouseDown={(e) => {
-                    if (!isPreview) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }}
+            >
+                <span>{element.type}</span>
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
                         e.preventDefault();
-                        onDragStart(e);
-                    }
+                        onDelete();
+                    }}
+                    className="hover:bg-blue-600 p-1 rounded"
+                >
+                    <Trash2 size={12}/>
+                </button>
+            </div>
+
+            <div
+                className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 cursor-nw-resize"
+                onMouseDown={(e) => {
+                    e.preventDefault();
+                    onMouseDown(e, 'top-left');
+                }}
+            />
+            <div
+                className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 cursor-ne-resize"
+                onMouseDown={(e) => {
+                    e.preventDefault();
+                    onMouseDown(e, 'top-right');
+                }}
+            />
+            <div
+                className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 cursor-sw-resize"
+                onMouseDown={(e) => {
+                    e.preventDefault();
+                    onMouseDown(e, 'bottom-left');
+                }}
+            />
+            <div
+                className="absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 cursor-se-resize"
+                onMouseDown={(e) => {
+                    e.preventDefault();
+                    onMouseDown(e, 'bottom-right');
+                }}
+            />
+
+            <div
+                className="w-full h-full cursor-move"
+                onMouseDown={(e) => {
+                    e.preventDefault();
+                    onDragStart(e);
                 }}
             >
                 {renderContent()}
