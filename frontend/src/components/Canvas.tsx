@@ -7,9 +7,8 @@ interface CanvasProps {
     pageSettings: PageSettings;
     selectedElement: Element | null;
     onElementSelect: (element: Element | null) => void;
+    onElementUpdate: (element: Element) => void;
     onElementDelete: (id: number) => void;
-    onMouseDown: (e: React.MouseEvent, elementId: number, corner: string) => void;
-    onDragStart: (e: React.MouseEvent, elementId: number) => void;
 }
 
 const Canvas = ({
@@ -17,9 +16,8 @@ const Canvas = ({
                     pageSettings,
                     selectedElement,
                     onElementSelect,
-                    onElementDelete,
-                    onMouseDown,
-                    onDragStart
+                    onElementUpdate,
+                    onElementDelete
                 }: CanvasProps) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -29,6 +27,7 @@ const Canvas = ({
     const lastPosition = useRef({x: 0, y: 0});
     const [isMouseOverElement, setIsMouseOverElement] = useState(false);
 
+    // Prevent browser zoom when using Ctrl + scroll
     useEffect(() => {
         const preventDefault = (e: WheelEvent) => {
             if (e.ctrlKey || e.metaKey) {
@@ -39,6 +38,7 @@ const Canvas = ({
         return () => document.removeEventListener('wheel', preventDefault);
     }, []);
 
+    // Handle element mouse events
     useEffect(() => {
         const handleMouseLeave = () => {
             setIsMouseOverElement(false);
@@ -56,6 +56,7 @@ const Canvas = ({
         };
     }, [elements]);
 
+    // Calculate initial scale and position
     useEffect(() => {
         const calculateInitialScale = () => {
             if (!containerRef.current) return;
@@ -82,23 +83,44 @@ const Canvas = ({
         return () => window.removeEventListener('resize', calculateInitialScale);
     }, [pageSettings]);
 
+    // Handle canvas wheel (zoom) events
     const handleWheel = (e: React.WheelEvent) => {
         if (isMouseOverElement) return;
-        const delta = e.deltaY * -0.002;
-        const rect = containerRef.current?.getBoundingClientRect();
-        if (!rect) return;
+        if (e.ctrlKey || e.metaKey) {
+            // Keep existing zoom behavior for Ctrl/Cmd + scroll
+            const delta = e.deltaY * -0.002;
+            const rect = containerRef.current?.getBoundingClientRect();
+            if (!rect) return;
 
-        const mouseX = e.clientX - rect.left - position.x;
-        const mouseY = e.clientY - rect.top - position.y;
-        const newScale = Math.min(Math.max(0.1, scale + delta), 2);
-        const scaleDiff = newScale - scale;
-        const newX = position.x - (mouseX * scaleDiff);
-        const newY = position.y - (mouseY * scaleDiff);
+            const mouseX = e.clientX - rect.left - position.x;
+            const mouseY = e.clientY - rect.top - position.y;
+            const newScale = Math.min(Math.max(0.1, scale + delta), 2);
+            const scaleDiff = newScale - scale;
+            const newX = position.x - (mouseX * scaleDiff);
+            const newY = position.y - (mouseY * scaleDiff);
 
-        setScale(newScale);
-        setPosition({x: newX, y: newY});
+            setScale(newScale);
+            setPosition({x: newX, y: newY});
+        } else {
+            // Direct zoom for normal scroll
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            const newScale = Math.min(Math.max(0.1, scale + delta), 2);
+            const rect = containerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+
+            const mouseX = e.clientX - rect.left - position.x;
+            const mouseY = e.clientY - rect.top - position.y;
+            const scaleDiff = newScale - scale;
+            const newX = position.x - (mouseX * scaleDiff);
+            const newY = position.y - (mouseY * scaleDiff);
+
+            setScale(newScale);
+            setPosition({x: newX, y: newY});
+            e.preventDefault();
+        }
     };
 
+    // Handle canvas click (deselect)
     const handleCanvasClick = (e: React.MouseEvent) => {
         if (e.target === containerRef.current || e.target === canvasRef.current) {
             onElementSelect(null);
@@ -106,7 +128,8 @@ const Canvas = ({
         }
     };
 
-    const handleMouseDown = (e: React.MouseEvent) => {
+    // Handle canvas drag
+    const handleCanvasMouseDown = (e: React.MouseEvent) => {
         if (e.target === containerRef.current || e.target === canvasRef.current) {
             e.preventDefault();
             setIsDragging(true);
@@ -118,7 +141,7 @@ const Canvas = ({
         }
     };
 
-    const handleMouseMove = (e: React.MouseEvent) => {
+    const handleCanvasMouseMove = (e: React.MouseEvent) => {
         if (isDragging) {
             const newX = e.clientX - lastPosition.current.x;
             const newY = e.clientY - lastPosition.current.y;
@@ -126,7 +149,7 @@ const Canvas = ({
         }
     };
 
-    const handleMouseUp = () => {
+    const handleCanvasMouseUp = () => {
         if (isDragging) {
             setIsDragging(false);
             document.body.style.cursor = 'default';
@@ -134,59 +157,104 @@ const Canvas = ({
         setIsMouseOverElement(false);
     };
 
-    useEffect(() => {
-        if (isDragging) {
-            const handleGlobalMouseMove = (e: MouseEvent) => {
-                const newX = e.clientX - lastPosition.current.x;
-                const newY = e.clientY - lastPosition.current.y;
-                setPosition({x: newX, y: newY});
-            };
+    // Handle element drag
+    const handleElementDrag = (elementId: number, deltaX: number, deltaY: number) => {
+        const element = elements.find(el => el.id === elementId);
+        if (!element) return;
 
-            const handleGlobalMouseUp = () => {
-                setIsDragging(false);
-                document.body.style.cursor = 'default';
-                setIsMouseOverElement(false);
-            };
-
-            document.addEventListener('mousemove', handleGlobalMouseMove);
-            document.addEventListener('mouseup', handleGlobalMouseUp);
-
-            return () => {
-                document.removeEventListener('mousemove', handleGlobalMouseMove);
-                document.removeEventListener('mouseup', handleGlobalMouseUp);
-            };
-        }
-    }, [isDragging]);
-
-    const getCanvasStyle = () => {
-        const baseStyle: React.CSSProperties = {
-            position: 'absolute',
-            backgroundColor: pageSettings.bgColor,
-            transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-            transformOrigin: '0 0',
-            transition: isDragging ? 'none' : 'transform 0.1s ease',
-            width: pageSettings.responsive ? '1200px' : `${pageSettings.width}px`,
-            height: pageSettings.responsive ? '800px' : `${pageSettings.height}px`,
-            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+        const scaled = {
+            x: deltaX / scale,
+            y: deltaY / scale
         };
-        return baseStyle;
+
+        onElementUpdate({
+            ...element,
+            properties: {
+                ...element.properties,
+                x: element.properties.x + scaled.x,
+                y: element.properties.y + scaled.y
+            }
+        });
     };
+
+    // Handle element resize
+    const handleElementResize = (
+        elementId: number,
+        corner: string,
+        deltaX: number,
+        deltaY: number
+    ) => {
+        const element = elements.find(el => el.id === elementId);
+        if (!element) return;
+
+        const scaled = {
+            x: deltaX / scale,
+            y: deltaY / scale
+        };
+
+        const newProperties = {...element.properties};
+
+        switch (corner) {
+            case 'top-left':
+                newProperties.width = Math.max(50, element.properties.width - scaled.x);
+                newProperties.height = Math.max(50, element.properties.height - scaled.y);
+                newProperties.x = element.properties.x + (element.properties.width - newProperties.width);
+                newProperties.y = element.properties.y + (element.properties.height - newProperties.height);
+                break;
+
+            case 'top-right':
+                newProperties.width = Math.max(50, element.properties.width + scaled.x);
+                newProperties.height = Math.max(50, element.properties.height - scaled.y);
+                newProperties.y = element.properties.y + (element.properties.height - newProperties.height);
+                break;
+
+            case 'bottom-left':
+                newProperties.width = Math.max(50, element.properties.width - scaled.x);
+                newProperties.height = Math.max(50, element.properties.height + scaled.y);
+                newProperties.x = element.properties.x + (element.properties.width - newProperties.width);
+                break;
+
+            case 'bottom-right':
+                newProperties.width = Math.max(50, element.properties.width + scaled.x);
+                newProperties.height = Math.max(50, element.properties.height + scaled.y);
+                break;
+        }
+
+        onElementUpdate({
+            ...element,
+            properties: newProperties
+        });
+    };
+
+    const getCanvasStyle = () => ({
+        position: 'absolute' as const,
+        backgroundColor: pageSettings.bgColor,
+        transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+        transformOrigin: '0 0',
+        transition: isDragging ? 'none' : 'transform 0.1s ease',
+        width: pageSettings.responsive ? '1200px' : `${pageSettings.width}px`,
+        height: pageSettings.responsive ? '800px' : `${pageSettings.height}px`,
+        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+    });
 
     return (
         <div
             ref={containerRef}
             className="relative w-full h-full overflow-hidden bg-gray-100"
             onWheel={handleWheel}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
+            onMouseDown={handleCanvasMouseDown}
+            onMouseMove={handleCanvasMouseMove}
+            onMouseUp={handleCanvasMouseUp}
+            onMouseLeave={handleCanvasMouseUp}
             onClick={handleCanvasClick}
             style={{cursor: isDragging ? 'grabbing' : 'grab'}}
         >
+            {/* Zoom indicator */}
             <div className="absolute right-4 bottom-4 bg-white px-2 py-1 rounded shadow text-sm z-10">
                 {Math.round(scale * 100)}%
             </div>
+
+            {/* Canvas */}
             <div
                 ref={canvasRef}
                 className="bg-white rounded-lg"
@@ -195,23 +263,52 @@ const Canvas = ({
                 {elements.map(element => (
                     <ElementRenderer
                         key={element.id}
-                        element={{
-                            ...element,
-                            position: {
-                                x: element.position.x,
-                                y: element.position.y
-                            }
-                        }}
+                        element={element}
                         isSelected={selectedElement?.id === element.id}
                         onSelect={() => onElementSelect(element)}
                         onDelete={() => onElementDelete(element.id)}
                         onMouseDown={(e, corner) => {
                             setIsMouseOverElement(true);
-                            onMouseDown(e, element.id, corner);
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+
+                            const handleMouseMove = (moveEvent: MouseEvent) => {
+                                handleElementResize(
+                                    element.id,
+                                    corner,
+                                    moveEvent.clientX - startX,
+                                    moveEvent.clientY - startY
+                                );
+                            };
+
+                            const handleMouseUp = () => {
+                                document.removeEventListener('mousemove', handleMouseMove);
+                                document.removeEventListener('mouseup', handleMouseUp);
+                            };
+
+                            document.addEventListener('mousemove', handleMouseMove);
+                            document.addEventListener('mouseup', handleMouseUp);
                         }}
                         onDragStart={(e) => {
                             setIsMouseOverElement(true);
-                            onDragStart(e, element.id);
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+
+                            const handleMouseMove = (moveEvent: MouseEvent) => {
+                                handleElementDrag(
+                                    element.id,
+                                    moveEvent.clientX - startX,
+                                    moveEvent.clientY - startY
+                                );
+                            };
+
+                            const handleMouseUp = () => {
+                                document.removeEventListener('mousemove', handleMouseMove);
+                                document.removeEventListener('mouseup', handleMouseUp);
+                            };
+
+                            document.addEventListener('mousemove', handleMouseMove);
+                            document.addEventListener('mouseup', handleMouseUp);
                         }}
                     />
                 ))}

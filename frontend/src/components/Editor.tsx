@@ -4,11 +4,10 @@ import {ComponentsSidebar} from './ComponentsSidebar';
 import {PropertiesPanel} from './PropertiesPanel';
 import PageSettingsPanel from './PageSettingsPanel';
 import {componentsData} from '../constants/components';
-import {ComponentProps, PageSettings} from '../types';
-import {useEffect, useState} from 'react';
-import {XCircle} from 'lucide-react';
+import {Element, PageSettings} from '../types';
+import {useEffect, useMemo, useState} from 'react';
+import {Trash2, XCircle} from 'lucide-react';
 import Canvas from "@/components/Canvas.tsx";
-import {isEqual} from "lodash";
 
 const defaultPageSettings: PageSettings = {
     responsive: true,
@@ -42,28 +41,29 @@ export default function Editor() {
         resetHistory
     } = useEditorState();
 
-    useEffect(() => {
-        const loadContent = async () => {
-            try {
-                const response = await fetch('http://localhost:3000/api/page');
-                const data = await response.json();
+    const loadContent = async () => {
+        try {
+            const response = await fetch('http://localhost:3000/api/page');
+            const data = await response.json();
 
-                if (!data.success) {
-                    throw new Error(data.error || 'Failed to load page content');
-                }
-
-                if (data.data) {
-                    setElements(data.data.elements || []);
-                    setPageSettings(data.data.settings || defaultPageSettings);
-                    resetHistory(data.data.elements || []);
-                }
-            } catch (error) {
-                setError(error instanceof Error ? error.message : 'Failed to load page content');
-            } finally {
-                setIsLoading(false);
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to load page content');
             }
-        };
 
+            if (data.data) {
+                setElements(data.data.elements || []);
+                setPageSettings(data.data.settings || defaultPageSettings);
+                resetHistory(data.data.elements || []);
+                setSelectedElement(null);
+                setShowProperties(false);
+            }
+        } catch (error) {
+            setError(error instanceof Error ? error.message : 'Failed to load page content');
+            setTimeout(() => setError(null), 5000);
+        }
+    };
+
+    useEffect(() => {
         loadContent();
     }, []);
 
@@ -71,12 +71,19 @@ export default function Editor() {
         const componentData = componentsData.find(c => c.id === type);
         if (!componentData) return;
 
-        const newElement = {
+        const newElement: Element = {
             id: Date.now(),
             type,
-            position: {x: 100, y: 100},
-            size: {width: 200, height: 100},
-            props: {...componentData.defaultProps}
+            properties: {
+                x: 100,
+                y: 100,
+                width: 200,
+                height: 100,
+                ...Object.fromEntries(
+                    componentData.properties.map(prop => [prop.name, prop.defaultValue])
+                )
+            },
+            content: componentData.defaultContent
         };
 
         const newElements = [...elements, newElement];
@@ -86,10 +93,10 @@ export default function Editor() {
         setShowProperties(true);
     };
 
-    const updateElementProps = (id: number, newProps: Partial<ComponentProps>) => {
+    const updateElementProps = (id: number, newProps: Record<string, any>) => {
         const newElements = elements.map(el =>
             el.id === id
-                ? {...el, props: {...el.props, ...newProps}}
+                ? {...el, properties: {...el.properties, ...newProps}}
                 : el
         );
         setElements(newElements);
@@ -125,8 +132,12 @@ export default function Editor() {
                 })
             });
 
-            const data = await response.json();
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || 'Failed to save page');
+            }
 
+            const data = await response.json();
             if (!data.success) {
                 throw new Error(data.error || 'Failed to save page');
             }
@@ -134,6 +145,7 @@ export default function Editor() {
             setError(error instanceof Error ? error.message : 'Failed to save page');
         } finally {
             setIsSaving(false);
+            setTimeout(() => setError(null), 3000);
         }
     };
 
@@ -141,76 +153,10 @@ export default function Editor() {
         setPageSettings(newSettings);
     };
 
-    const loadContent = async () => {
-        try {
-            const response = await fetch('http://localhost:3000/api/page');
-            const data = await response.json();
-
-            if (!data.success) {
-                throw new Error(data.error || 'Failed to load page content');
-            }
-
-            if (data.data) {
-                setElements(data.data.elements || []);
-                setPageSettings(data.data.settings || defaultPageSettings);
-                resetHistory(data.data.elements || []);
-                setSelectedElement(null);
-                setShowProperties(false);
-            }
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Failed to load page content');
-            setTimeout(() => setError(null), 5000); // Clear error after 5 seconds
-        }
-    };
-
-    useEffect(() => {
-        const initializeEditor = async () => {
-            setIsLoading(true);
-            await loadContent();
-            setIsLoading(false);
-        };
-
-        initializeEditor();
-    }, []);
-
     const handleLoad = async () => {
         setIsLoading(true);
         await loadContent();
         setIsLoading(false);
-    };
-
-    const updateElementPosition = (axis: 'x' | 'y', value: number) => {
-        const newElements = elements.map(el =>
-            el.id === selectedElement?.id
-                ? {
-                    ...el,
-                    position: {
-                        ...el.position,
-                        [axis]: value
-                    }
-                }
-                : el
-        );
-        setElements(newElements);
-        setSelectedElement(newElements.find(el => el.id === selectedElement?.id) || null);
-        addToHistory(newElements);
-    };
-
-    const updateElementSize = (dimension: 'width' | 'height', value: number) => {
-        const newElements = elements.map(el =>
-            el.id === selectedElement?.id
-                ? {
-                    ...el,
-                    size: {
-                        ...el.size,
-                        [dimension]: value
-                    }
-                }
-                : el
-        );
-        setElements(newElements);
-        setSelectedElement(newElements.find(el => el.id === selectedElement?.id) || null);
-        addToHistory(newElements);
     };
 
     return (
@@ -271,128 +217,15 @@ export default function Editor() {
                             setSelectedElement(element);
                             setShowProperties(true);
                         }}
+                        onElementUpdate={(element) => {
+                            const newElements = elements.map(el =>
+                                el.id === element.id ? element : el
+                            );
+                            setElements(newElements);
+                            setSelectedElement(element);
+                            addToHistory(newElements);
+                        }}
                         onElementDelete={deleteElement}
-                        onMouseDown={(e, elementId, corner) => {
-                            // Handle mouse down
-                            const element = elements.find(el => el.id === elementId);
-                            if (!element) return;
-
-                            const startX = e.clientX;
-                            const startY = e.clientY;
-                            const originalElement = {...element};
-
-                            const handleMouseMove = (moveEvent: MouseEvent) => {
-                                const deltaX = moveEvent.clientX - startX;
-                                const deltaY = moveEvent.clientY - startY;
-
-                                const newElements = elements.map(el => {
-                                    if (el.id === elementId) {
-                                        let newSize = {...element.size};
-                                        let newPosition = {...element.position};
-
-                                        switch (corner) {
-                                            case 'top-left':
-                                                newSize.width = Math.max(50, element.size.width - deltaX);
-                                                newSize.height = Math.max(50, element.size.height - deltaY);
-                                                newPosition.x = element.position.x + (element.size.width - newSize.width);
-                                                newPosition.y = element.position.y + (element.size.height - newSize.height);
-                                                break;
-
-                                            case 'top-right':
-                                                newSize.width = Math.max(50, element.size.width + deltaX);
-                                                newSize.height = Math.max(50, element.size.height - deltaY);
-                                                newPosition.y = element.position.y + (element.size.height - newSize.height);
-                                                break;
-
-                                            case 'bottom-left':
-                                                newSize.width = Math.max(50, element.size.width - deltaX);
-                                                newSize.height = Math.max(50, element.size.height + deltaY);
-                                                newPosition.x = element.position.x + (element.size.width - newSize.width);
-                                                break;
-
-                                            case 'bottom-right':
-                                                newSize.width = Math.max(50, element.size.width + deltaX);
-                                                newSize.height = Math.max(50, element.size.height + deltaY);
-                                                break;
-                                        }
-
-                                        return {
-                                            ...el,
-                                            size: newSize,
-                                            position: newPosition
-                                        };
-                                    }
-                                    return el;
-                                });
-
-                                setElements(newElements);
-                            };
-
-                            const handleMouseUp = () => {
-                                const finalElement = elements.find(el => el.id === elementId);
-                                if (!isEqual(originalElement.position, finalElement?.position) ||
-                                    !isEqual(originalElement.size, finalElement?.size)) {
-                                    addToHistory(elements);
-                                }
-                                document.removeEventListener('mousemove', handleMouseMove);
-                                document.removeEventListener('mouseup', handleMouseUp);
-                            };
-
-                            document.addEventListener('mousemove', handleMouseMove);
-                            document.addEventListener('mouseup', handleMouseUp);
-                        }}
-                        onDragStart={(e, elementId) => {
-                            // Handle drag start
-                            const element = elements.find(el => el.id === elementId);
-                            if (!element) return;
-
-                            const startX = e.clientX - element.position.x;
-                            const startY = e.clientY - element.position.y;
-                            const originalPosition = {...element.position};
-
-                            const handleDragMove = (e: MouseEvent) => {
-                                const newElements = elements.map(el => {
-                                    if (el.id === elementId) {
-                                        return {
-                                            ...el,
-                                            position: {
-                                                x: e.clientX - startX,
-                                                y: e.clientY - startY
-                                            }
-                                        };
-                                    }
-                                    return el;
-                                });
-                                setElements(newElements);
-                            };
-
-                            const handleDragEnd = (e: MouseEvent) => {
-                                const newPosition = {
-                                    x: e.clientX - startX,
-                                    y: e.clientY - startY
-                                };
-
-                                const finalElements = elements.map(el => {
-                                    if (el.id === elementId) {
-                                        return {
-                                            ...el,
-                                            position: newPosition
-                                        };
-                                    }
-                                    return el;
-                                });
-
-                                if (!isEqual(originalPosition, newPosition)) {
-                                    setElements(finalElements);
-                                    addToHistory(finalElements);
-                                }
-                                document.removeEventListener('mousemove', handleDragMove);
-                                document.removeEventListener('mouseup', handleDragEnd);
-                            };
-
-                            document.addEventListener('mousemove', handleDragMove);
-                            document.addEventListener('mouseup', handleDragEnd);
-                        }}
                     />
                 </div>
 
@@ -400,9 +233,7 @@ export default function Editor() {
                     <PropertiesPanel
                         element={selectedElement}
                         onClose={() => setShowProperties(false)}
-                        onUpdateProps={updateElementProps}
-                        onUpdatePosition={updateElementPosition}
-                        onUpdateSize={updateElementSize}
+                        onUpdateProperties={updateElementProps}
                     />
                 )}
 
@@ -413,6 +244,230 @@ export default function Editor() {
                         onClose={() => setShowPageSettings(false)}
                     />
                 )}
+            </div>
+        </div>
+    );
+}
+
+interface ElementRendererProps {
+    element: Element;
+    isSelected: boolean;
+    onSelect: () => void;
+    onDelete: () => void;
+    onMouseDown: (e: React.MouseEvent, corner: string) => void;
+    onDragStart: (e: React.MouseEvent) => void;
+}
+
+export function ElementRenderer({
+                                    element,
+                                    isSelected,
+                                    onSelect,
+                                    onDelete,
+                                    onMouseDown,
+                                    onDragStart
+                                }: ElementRendererProps) {
+    const componentDef = componentsData.find(c => c.id === element.type);
+
+    const elementStyle = useMemo(() => {
+        const style: React.CSSProperties = {
+            position: 'absolute',
+            left: element.properties.x,
+            top: element.properties.y,
+            width: element.properties.width,
+            height: element.properties.height,
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            MozUserSelect: 'none',
+        };
+
+        // Add all style-related properties
+        if (componentDef) {
+            for (const prop of componentDef.properties) {
+                if (['color', 'backgroundColor', 'fontSize', 'fontWeight', 'lineHeight',
+                    'textAlign', 'padding', 'margin', 'borderRadius', 'borderColor',
+                    'borderWidth', 'opacity', 'display', 'flexDirection'].includes(prop.name)) {
+                    style[prop.name as keyof React.CSSProperties] = element.properties[prop.name];
+                }
+            }
+        }
+
+        return style;
+    }, [element.properties, element.type]);
+
+    const renderContent = () => {
+        if (!componentDef) return null;
+
+        switch (element.type) {
+            case 'text':
+            case 'paragraph':
+            case 'heading1':
+            case 'heading2': {
+                return (
+                    <div style={elementStyle}>
+                        {element.content.map((item, index) => (
+                            item.type === 'text' ? (
+                                <span key={index}>{item.content}</span>
+                            ) : null // We'll handle nested elements later
+                        ))}
+                    </div>
+                );
+            }
+
+            case 'button': {
+                return (
+                    <button
+                        style={elementStyle}
+                        disabled={element.properties.disabled}
+                    >
+                        {element.properties.text}
+                    </button>
+                );
+            }
+
+            case 'link': {
+                return (
+                    <a
+                        href={element.properties.href}
+                        style={elementStyle}
+                    >
+                        {element.properties.text}
+                    </a>
+                );
+            }
+
+            case 'image': {
+                return (
+                    <img
+                        src={element.properties.src}
+                        alt={element.properties.alt}
+                        style={{
+                            ...elementStyle,
+                            objectFit: element.properties.objectFit as 'cover' | 'contain'
+                        }}
+                        draggable={false}
+                    />
+                );
+            }
+
+            case 'input': {
+                return (
+                    <input
+                        type={element.properties.type}
+                        placeholder={element.properties.placeholder}
+                        style={elementStyle}
+                        readOnly
+                    />
+                );
+            }
+
+            case 'textarea': {
+                return (
+                    <textarea
+                        placeholder={element.properties.placeholder}
+                        rows={element.properties.rows}
+                        style={elementStyle}
+                        readOnly
+                    />
+                );
+            }
+
+            case 'div': {
+                return (
+                    <div style={elementStyle}>
+                        {element.content.map((item, index) => (
+                            item.type === 'text' ? (
+                                <span key={index}>{item.content}</span>
+                            ) : null // We'll handle nested elements later
+                        ))}
+                    </div>
+                );
+            }
+
+            default:
+                return <div style={elementStyle}>Unknown Component</div>;
+        }
+    };
+
+    return (
+        <div
+            className={`absolute border border-gray-200 ${
+                isSelected ? 'ring-2 ring-blue-500' : ''
+            }`}
+            onClick={(e) => {
+                e.preventDefault();
+                onSelect();
+            }}
+            onMouseDown={(e) => e.preventDefault()}
+            style={{
+                left: element.properties.x,
+                top: element.properties.y,
+                width: element.properties.width,
+                height: element.properties.height,
+            }}
+        >
+            {isSelected && (
+                <div
+                    className="absolute -top-6 left-0 right-0 flex items-center justify-between bg-blue-500 text-white text-xs px-2 py-1 rounded-t"
+                    onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                    }}
+                >
+                    <span>{componentDef?.name || element.type}</span>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            onDelete();
+                        }}
+                        className="hover:bg-blue-600 p-1 rounded"
+                    >
+                        <Trash2 size={12}/>
+                    </button>
+                </div>
+            )}
+
+            {isSelected && (
+                <>
+                    <div
+                        className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 cursor-nw-resize"
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            onMouseDown(e, 'top-left');
+                        }}
+                    />
+                    <div
+                        className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 cursor-ne-resize"
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            onMouseDown(e, 'top-right');
+                        }}
+                    />
+                    <div
+                        className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 cursor-sw-resize"
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            onMouseDown(e, 'bottom-left');
+                        }}
+                    />
+                    <div
+                        className="absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 cursor-se-resize"
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            onMouseDown(e, 'bottom-right');
+                        }}
+                    />
+                </>
+            )}
+
+            <div
+                className="w-full h-full cursor-move"
+                onMouseDown={(e) => {
+                    e.preventDefault();
+                    onDragStart(e);
+                }}
+            >
+                {renderContent()}
             </div>
         </div>
     );

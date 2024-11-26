@@ -20,12 +20,24 @@ pub async fn init_db(pool: &PgPool) -> Result<(), Error> {
         .await?;
 
     if !exists {
+        let default_content = serde_json::json!({
+            "elements": [],
+            "settings": {
+                "responsive": true,
+                "width": 1200,
+                "height": 800,
+                "maxWidth": "none",
+                "bgColor": "#ffffff"
+            }
+        });
+
         sqlx::query(
             r#"
             INSERT INTO page (id, elements)
-            VALUES (1, '[]'::jsonb)
+            VALUES (1, $1)
             "#,
         )
+        .bind(default_content)
         .execute(pool)
         .await?;
     }

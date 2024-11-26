@@ -1,112 +1,110 @@
 import {ComponentData} from '../types';
 import {Search} from 'lucide-react';
-import {useMemo, useRef, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 
 interface ComponentsSidebarProps {
     components: ComponentData[];
-    onAddElement: (type: string) => void;
+    onAddElement: (componentId: string) => void;
 }
 
-interface Category {
-    name: string;
-    icon: string;
-    items: ComponentData[];
-}
-
-export function ComponentsSidebar({components, onAddElement}: ComponentsSidebarProps) {
+export function ComponentsSidebar({
+                                      components,
+                                      onAddElement
+                                  }: ComponentsSidebarProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
     const categoriesRef = useRef<HTMLDivElement>(null);
-    const componentsRef = useRef<HTMLDivElement>(null);
+    const dragStartX = useRef<number>(0);
+    const scrollLeft = useRef<number>(0);
 
-    const [isDraggingCategories, setIsDraggingCategories] = useState(false);
-    const [categoryStartX, setCategoryStartX] = useState(0);
-    const [categoryScrollLeft, setCategoryScrollLeft] = useState(0);
+    // Group components by category
+    const categories = useMemo(() => {
+        const groups = components.reduce((acc, component) => {
+            if (!acc[component.category]) {
+                acc[component.category] = [];
+            }
+            acc[component.category].push(component);
+            return acc;
+        }, {} as Record<string, ComponentData[]>);
 
-    const categories: Category[] = useMemo(() => [
-        {
-            name: 'Text',
-            icon: 'T',
-            items: components.filter(c => ['text', 'heading1', 'heading2', 'heading3', 'paragraph'].includes(c.id))
-        },
-        {
-            name: 'Interactive',
-            icon: '⬢',
-            items: components.filter(c => ['button', 'link', 'input', 'textarea'].includes(c.id))
-        },
-        {
-            name: 'Media',
-            icon: '🖼',
-            items: components.filter(c => ['image', 'video', 'audio'].includes(c.id))
-        },
-        {
-            name: 'Layout',
-            icon: '□',
-            items: components.filter(c => ['div', 'section'].includes(c.id))
-        },
-        {
-            name: 'Lists',
-            icon: '•',
-            items: components.filter(c => ['unorderedList', 'orderedList'].includes(c.id))
-        },
-        {
-            name: 'Data',
-            icon: '▦',
-            items: components.filter(c => ['table'].includes(c.id))
-        },
-        {
-            name: 'Form',
-            icon: '⌨',
-            items: components.filter(c => ['select', 'checkbox', 'radio'].includes(c.id))
-        },
-        {
-            name: 'Structure',
-            icon: '≡',
-            items: components.filter(c => ['nav', 'footer', 'header'].includes(c.id))
-        }
-    ], [components]);
+        return Object.entries(groups).map(([category, items]) => ({
+            name: category.charAt(0).toUpperCase() + category.slice(1),
+            items: items.sort((a, b) => a.name.localeCompare(b.name))
+        }));
+    }, [components]);
 
+    // Filter components
     const filteredComponents = useMemo(() => {
-        const filtered = components.filter(component =>
-            component.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+        let filtered = components;
+
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(component =>
+                component.name.toLowerCase().includes(query) ||
+                component.description?.toLowerCase().includes(query) ||
+                component.tags?.some(tag => tag.toLowerCase().includes(query))
+            );
+        }
 
         if (selectedCategory) {
-            return filtered.filter(component =>
-                categories.find(cat => cat.name === selectedCategory)?.items.includes(component)
+            filtered = filtered.filter(component =>
+                component.category === selectedCategory.toLowerCase()
             );
         }
 
         return filtered;
-    }, [components, searchQuery, selectedCategory, categories]);
+    }, [components, searchQuery, selectedCategory]);
 
-    const handleCategoryMouseDown = (e: React.MouseEvent) => {
-        if (!categoriesRef.current) return;
-        setIsDraggingCategories(true);
-        setCategoryStartX(e.pageX);
-        setCategoryScrollLeft(categoriesRef.current.scrollLeft);
-    };
+    // Handle mouse events for dragging
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isDragging || !categoriesRef.current) return;
 
-    const handleCategoryMouseMove = (e: React.MouseEvent) => {
-        if (!isDraggingCategories || !categoriesRef.current) return;
+            const x = e.pageX;
+            const walk = (x - dragStartX.current) * 2;
+            if (categoriesRef.current) {
+                categoriesRef.current.scrollLeft = scrollLeft.current - walk;
+            }
+        };
+
+        const handleMouseUp = () => {
+            setIsDragging(false);
+            document.body.style.cursor = '';
+        };
+
+        if (isDragging) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = 'grabbing';
+        }
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = '';
+        };
+    }, [isDragging]);
+
+    // Handle drag start
+    const handleMouseDown = (e: React.MouseEvent) => {
         e.preventDefault();
-        const dx = e.pageX - categoryStartX;
-        categoriesRef.current.scrollLeft = categoryScrollLeft - dx;
+        setIsDragging(true);
+        dragStartX.current = e.pageX;
+        scrollLeft.current = categoriesRef.current?.scrollLeft || 0;
     };
 
-    const handleCategoryMouseUp = () => {
-        setIsDraggingCategories(false);
-    };
-
-    const handleCategoryWheel = (e: React.WheelEvent) => {
-        if (!categoriesRef.current) return;
+    // Handle wheel scroll
+    const handleWheel = (e: React.WheelEvent) => {
         e.preventDefault();
-        categoriesRef.current.scrollLeft += e.deltaY;
+        if (categoriesRef.current) {
+            categoriesRef.current.scrollLeft += e.deltaY;
+        }
     };
 
     return (
         <div className="w-72 border-r bg-white flex flex-col h-full">
-            {/* Search Section */}
+            {/* Search */}
             <div className="p-4 border-b">
                 <div className="relative">
                     <input
@@ -120,72 +118,61 @@ export function ComponentsSidebar({components, onAddElement}: ComponentsSidebarP
                 </div>
             </div>
 
-            {/* Categories with Horizontal Scrolling */}
+            {/* Categories */}
             <div
                 ref={categoriesRef}
-                className="flex p-2 border-b select-none overflow-x-auto"
-                onMouseDown={handleCategoryMouseDown}
-                onMouseMove={handleCategoryMouseMove}
-                onMouseUp={handleCategoryMouseUp}
-                onMouseLeave={handleCategoryMouseUp}
-                onWheel={handleCategoryWheel}
+                className="flex p-2 border-b space-x-2 overflow-x-auto scrollbar-none"
                 style={{
-                    cursor: isDraggingCategories ? 'grabbing' : 'grab',
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none',
-                    WebkitOverflowScrolling: 'touch'
+                    cursor: isDragging ? 'grabbing' : 'grab',
+                    userSelect: 'none',
+                    msOverflowStyle: 'none',  /* Hide scrollbar IE and Edge */
+                    scrollbarWidth: 'none',  /* Hide scrollbar Firefox */
+                    WebkitOverflowScrolling: 'touch',
                 }}
+                onMouseDown={handleMouseDown}
+                onWheel={handleWheel}
             >
-                <div className="flex space-x-2 min-w-max">
+                <button
+                    onClick={() => setSelectedCategory(null)}
+                    className={`flex-none px-3 py-1 rounded-md text-sm whitespace-nowrap
+                        ${!selectedCategory
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                >
+                    All
+                </button>
+                {categories.map((category) => (
                     <button
-                        onClick={() => setSelectedCategory(null)}
+                        key={category.name}
+                        onClick={() => setSelectedCategory(category.name)}
                         className={`flex-none px-3 py-1 rounded-md text-sm whitespace-nowrap
-              ${!selectedCategory
+                            ${selectedCategory === category.name
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                     >
-                        All
+                        {category.name}
                     </button>
-                    {categories.map((category) => (
-                        <button
-                            key={category.name}
-                            onClick={() => setSelectedCategory(category.name)}
-                            className={`flex-none px-3 py-1 rounded-md text-sm whitespace-nowrap
-                ${selectedCategory === category.name
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                        >
-                            {category.name}
-                        </button>
-                    ))}
-                </div>
+                ))}
             </div>
 
-            {/* Components List with Wheel Scrolling Only */}
-            <div
-                ref={componentsRef}
-                className="flex-1 overflow-y-auto p-4"
-                style={{
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none',
-                    WebkitOverflowScrolling: 'touch'
-                }}
-            >
-                <div className="grid grid-cols-2 gap-3">
+            {/* Components Grid */}
+            <div className="flex-1 overflow-y-auto scrollbar-none">
+                <div className="grid grid-cols-2 gap-3 p-4">
                     {filteredComponents.map((component) => (
                         <button
                             key={component.id}
                             onClick={() => onAddElement(component.id)}
                             className="p-3 flex flex-col items-center justify-center space-y-2 bg-white border rounded-lg hover:border-blue-500 hover:shadow-sm transition-all duration-200"
+                            title={component.description}
                         >
-              <span className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-md text-lg">
-                {component.icon}
-              </span>
+                            <span className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-md text-lg">
+                                {component.icon}
+                            </span>
                             <span className="text-xs text-gray-600 text-center">
-                {component.name}
-              </span>
+                                {component.name}
+                            </span>
                         </button>
                     ))}
                 </div>
@@ -193,7 +180,9 @@ export function ComponentsSidebar({components, onAddElement}: ComponentsSidebarP
                 {filteredComponents.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-48 text-gray-500">
                         <span className="text-lg mb-2">No components found</span>
-                        <span className="text-sm text-gray-400">Try adjusting your search</span>
+                        <span className="text-sm text-gray-400">
+                            Try adjusting your search
+                        </span>
                     </div>
                 )}
             </div>

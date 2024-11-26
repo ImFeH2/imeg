@@ -16,7 +16,7 @@ pub async fn save_page(
         WHERE id = 1
         "#,
     )
-    .bind(serde_json::to_value(&content.elements).unwrap())
+    .bind(serde_json::to_value(&content).unwrap())
     .execute(pool.as_ref())
     .await
     {
@@ -40,9 +40,9 @@ pub async fn get_page(State(pool): State<Arc<PgPool>>) -> Json<ApiResponse<PageC
         .await
     {
         Ok(elements) => match serde_json::from_value(elements) {
-            Ok(elements) => Json(ApiResponse {
+            Ok(content) => Json(ApiResponse {
                 success: true,
-                data: Some(PageContent { elements }),
+                data: Some(content),
                 error: None,
             }),
             Err(err) => Json(ApiResponse {
