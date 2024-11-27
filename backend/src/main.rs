@@ -6,18 +6,21 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use dotenvy::dotenv;
 use sqlx::postgres::PgPoolOptions;
+use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 
-const DATABASE_URL: &str = "postgresql://imi_user:imi_passwd@localhost:5432/imi";
-
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
     let pool = PgPoolOptions::new()
         .max_connections(5)
-        .connect(DATABASE_URL)
+        .connect(&database_url)
         .await
         .expect("Failed to connect to PostgreSQL");
 
@@ -35,6 +38,9 @@ async fn main() {
     let app = Router::new()
         .route("/api/page", get(handlers::get_page))
         .route("/api/page", post(handlers::save_page))
+        .route("/api/components", get(handlers::get_components))
+        .route("/api/components", post(handlers::save_component))
+        .route("/api/components/delete", post(handlers::delete_component))
         .with_state(state)
         .layer(cors);
 

@@ -7,7 +7,29 @@ pub async fn init_db(pool: &PgPool) -> Result<(), Error> {
         r#"
         CREATE TABLE IF NOT EXISTS page (
             id INTEGER PRIMARY KEY,
-            elements JSONB NOT NULL
+            elements JSONB NOT NULL,
+            settings JSONB NOT NULL DEFAULT '{}'::jsonb
+        )
+        "#,
+    )
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS components (
+            db_id SERIAL PRIMARY KEY,
+            id BIGINT NOT NULL UNIQUE,
+            name VARCHAR(255) NOT NULL,
+            icon VARCHAR(255) NOT NULL,
+            category VARCHAR(255) NOT NULL,
+            description TEXT,
+            properties JSONB NOT NULL,
+            can_contain_content BOOLEAN NOT NULL,
+            default_content JSONB NOT NULL,
+            tags JSONB,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )
         "#,
     )
@@ -20,7 +42,7 @@ pub async fn init_db(pool: &PgPool) -> Result<(), Error> {
         .await?;
 
     if !exists {
-        let default_content = serde_json::json!({
+        let default_page = serde_json::json!({
             "elements": [],
             "settings": {
                 "responsive": true,
@@ -33,11 +55,12 @@ pub async fn init_db(pool: &PgPool) -> Result<(), Error> {
 
         sqlx::query(
             r#"
-            INSERT INTO page (id, elements)
-            VALUES (1, $1)
+            INSERT INTO page (id, elements, settings)
+            VALUES (1, $1::jsonb, $2::jsonb)
             "#,
         )
-        .bind(default_content)
+        .bind(default_page.get("elements").unwrap())
+        .bind(default_page.get("settings").unwrap())
         .execute(pool)
         .await?;
     }

@@ -1,10 +1,7 @@
-# Rust
-target/
-
 # IDE
 .idea/
 
-# ImI
-/html/*
-!/html/README.html
-/backend/markdown/*
+# backend
+/target/
+/backend/migrations/
+/backend/

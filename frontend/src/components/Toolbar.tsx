@@ -15,6 +15,7 @@ interface ToolbarProps {
     onLoad: () => void;
     isSaving: boolean;
     isLoading: boolean;
+    onSaveAsComponent?: () => void;
 }
 
 export function Toolbar({
@@ -31,7 +32,8 @@ export function Toolbar({
                             onSave,
                             onLoad,
                             isSaving,
-                            isLoading
+                            isLoading,
+                            onSaveAsComponent
                         }: ToolbarProps) {
     return (
         <div className="fixed top-0 left-0 right-0 h-12 bg-white border-b flex items-center px-4 z-10">
@@ -85,6 +87,20 @@ export function Toolbar({
                         <div className="ml-1 w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"/>
                     )}
                 </button>
+
+                {onSaveAsComponent && (
+                    <>
+                        <div className="h-6 w-px bg-gray-300 mx-2"/>
+                        <button
+                            onClick={onSaveAsComponent}
+                            className="p-2 hover:bg-gray-100 rounded flex items-center space-x-1"
+                            title="Save as Custom Component"
+                        >
+                            <Save size={20}/>
+                            <span className="text-sm">Save as Component</span>
+                        </button>
+                    </>
+                )}
 
                 <button
                     onClick={onLoad}

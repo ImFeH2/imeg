@@ -1,15 +1,154 @@
 import {Trash2} from 'lucide-react';
-import {Element} from '../types';
-import {useMemo} from 'react';
-import {componentsData} from "@/constants/components";
+import {ComponentElement, Content} from '../types';
+import React, {useMemo} from 'react';
 
 interface ElementRendererProps {
-    element: Element;
+    element: ComponentElement;
     isSelected: boolean;
     onSelect: () => void;
     onDelete: () => void;
     onMouseDown: (e: React.MouseEvent, corner: string) => void;
     onDragStart: (e: React.MouseEvent) => void;
+}
+
+// Helper function to get property value
+function getPropertyValue(element: ComponentElement, propertyName: string) {
+    if (!element?.properties || !Array.isArray(element.properties)) {
+        console.warn('Invalid properties structure:', element);
+        return undefined;
+    }
+    const property = element.properties.find(p => p.name === propertyName);
+    return property ? property.value : undefined;
+}
+
+// Recursive content renderer
+function ContentRenderer({content, style}: { content: Content, style: React.CSSProperties }) {
+    if (content.type === 'text') {
+        // Text content is always wrapped in a span to inherit parent styles
+        return <span style={style}>{content.content}</span>;
+    } else {
+        // For element content, recursively render the component
+        return <ElementContent element={content.content} parentStyle={style}/>;
+    }
+}
+
+// Component content renderer
+function ElementContent({element, parentStyle}: { element: ComponentElement, parentStyle?: React.CSSProperties }) {
+    const style = useMemo(() => {
+        const elementStyle: React.CSSProperties = {
+            ...parentStyle,
+            backgroundColor: getPropertyValue(element, 'backgroundColor'),
+            padding: getPropertyValue(element, 'padding'),
+            borderRadius: getPropertyValue(element, 'borderRadius'),
+            borderColor: getPropertyValue(element, 'borderColor'),
+            borderWidth: getPropertyValue(element, 'borderWidth'),
+            color: getPropertyValue(element, 'color'),
+            fontSize: getPropertyValue(element, 'fontSize'),
+            fontWeight: getPropertyValue(element, 'fontWeight'),
+            lineHeight: getPropertyValue(element, 'lineHeight'),
+            textAlign: getPropertyValue(element, 'textAlign'),
+            display: getPropertyValue(element, 'display'),
+            flexDirection: getPropertyValue(element, 'flexDirection'),
+        };
+        return elementStyle;
+    }, [element, parentStyle]);
+
+    // Render based on component type
+    switch (element.type.name) {
+        case 'Text Block':
+        case 'Paragraph':
+            return (
+                <p style={style}>
+                    {element.content.map((content, index) => (
+                        <ContentRenderer key={index} content={content} style={style}/>
+                    ))}
+                </p>
+            );
+
+        case 'Heading 1':
+            return (
+                <h1 style={style}>
+                    {element.content.map((content, index) => (
+                        <ContentRenderer key={index} content={content} style={style}/>
+                    ))}
+                </h1>
+            );
+
+        case 'Heading 2':
+            return (
+                <h2 style={style}>
+                    {element.content.map((content, index) => (
+                        <ContentRenderer key={index} content={content} style={style}/>
+                    ))}
+                </h2>
+            );
+
+        case 'Button':
+            return (
+                <button
+                    style={style}
+                    disabled={true}
+                >
+                    {getPropertyValue(element, 'text')}
+                </button>
+            );
+
+        case 'Link':
+            return (
+                <a
+                    href={getPropertyValue(element, 'href')}
+                    style={style}
+                >
+                    {getPropertyValue(element, 'text')}
+                </a>
+            );
+
+        case 'Image':
+            return (
+                <img
+                    src={getPropertyValue(element, 'src')}
+                    alt={getPropertyValue(element, 'alt')}
+                    style={{
+                        ...style,
+                        objectFit: getPropertyValue(element, 'objectFit') as 'cover' | 'contain'
+                    }}
+                    draggable={false}
+                />
+            );
+
+        case 'Input Field':
+            return (
+                <input
+                    type={getPropertyValue(element, 'type')}
+                    placeholder={getPropertyValue(element, 'placeholder')}
+                    style={style}
+                    disabled={true}
+                />
+            );
+
+        case 'Text Area':
+            return (
+                <textarea
+                    placeholder={getPropertyValue(element, 'placeholder')}
+                    style={style}
+                    disabled={true}
+                />
+            );
+
+        case 'Container':
+            return (
+                <div style={style}>
+                    {element.content.map((content, index) => (
+                        <ContentRenderer key={index} content={content} style={style}/>
+                    ))}
+                </div>
+            );
+
+        default:
+            return (
+                <div style={style}>Unknown Component</div>
+            );
+    }
 }
 
 export function ElementRenderer({
@@ -20,160 +159,24 @@ export function ElementRenderer({
                                     onMouseDown,
                                     onDragStart
                                 }: ElementRendererProps) {
-    const componentDef = componentsData.find(c => c.id === element.type);
-
-    // Calculate positions and dimensions
-    const positions = useMemo(() => {
-        return {
-            x: Math.round(element.properties.x),
-            y: Math.round(element.properties.y),
-            width: Math.round(element.properties.width),
-            height: Math.round(element.properties.height)
-        };
-    }, [element.properties]);
-
-    // Prepare element style from properties
-    const elementStyle = useMemo(() => {
-        const style: React.CSSProperties = {
-            width: '100%',
-            height: '100%',
-            userSelect: 'none',
-            WebkitUserSelect: 'none',
-            MozUserSelect: 'none',
-            boxSizing: 'border-box',
-            position: 'relative',
-            cursor: 'move',
-            backgroundColor: element.properties.backgroundColor,
-            borderRadius: element.properties.borderRadius,
-            padding: element.properties.padding,
-        };
-
-        // Add component-specific styles
-        if (componentDef) {
-            for (const prop of componentDef.properties) {
-                if (['color', 'fontSize', 'fontWeight', 'lineHeight',
-                    'textAlign', 'margin', 'borderColor',
-                    'borderWidth', 'opacity', 'display', 'flexDirection'].includes(prop.name)) {
-                    style[prop.name as keyof React.CSSProperties] = element.properties[prop.name];
-                }
-            }
-        }
-
-        return style;
-    }, [element.properties, componentDef]);
-
-    // Content rendering with specific styles
-    const renderContent = () => {
-        if (!componentDef) return null;
-
-        switch (element.type) {
-            case 'text':
-            case 'paragraph':
-            case 'heading1':
-            case 'heading2': {
-                return (
-                    <div style={elementStyle}>
-                        {element.content.map((item, index) => (
-                            item.type === 'text' && (
-                                <span key={index}>
-                                    {item.content}
-                                </span>
-                            )
-                        ))}
-                    </div>
-                );
-            }
-
-            case 'button': {
-                return (
-                    <button
-                        style={elementStyle}
-                        disabled={true}
-                    >
-                        {element.properties.text}
-                    </button>
-                );
-            }
-
-            case 'link': {
-                return (
-                    <div style={elementStyle}>
-                        {element.properties.text}
-                    </div>
-                );
-            }
-
-            case 'image': {
-                return (
-                    <img
-                        src={element.properties.src}
-                        alt={element.properties.alt}
-                        style={{
-                            ...elementStyle,
-                            objectFit: element.properties.objectFit as 'cover' | 'contain'
-                        }}
-                        draggable={false}
-                    />
-                );
-            }
-
-            case 'input': {
-                return (
-                    <input
-                        type={element.properties.type}
-                        placeholder={element.properties.placeholder}
-                        style={elementStyle}
-                        disabled={true}
-                    />
-                );
-            }
-
-            case 'textarea': {
-                return (
-                    <textarea
-                        placeholder={element.properties.placeholder}
-                        style={elementStyle}
-                        disabled={true}
-                    />
-                );
-            }
-
-            case 'div': {
-                return (
-                    <div style={elementStyle}>
-                        {element.content.map((item, index) => (
-                            item.type === 'text' && (
-                                <span key={index}>
-                                    {item.content}
-                                </span>
-                            )
-                        ))}
-                    </div>
-                );
-            }
-
-            default:
-                return <div style={elementStyle}>Unknown Component</div>;
-        }
+    const wrappedStyle: React.CSSProperties = {
+        position: 'absolute',
+        left: getPropertyValue(element, 'x'),
+        top: getPropertyValue(element, 'y'),
+        width: getPropertyValue(element, 'width'),
+        height: getPropertyValue(element, 'height'),
+        zIndex: isSelected ? 1000 : 1,
     };
 
     return (
         <div
             className={`element-container ${isSelected ? 'ring-2 ring-blue-500' : 'ring-1 ring-gray-200 hover:ring-blue-300'}`}
-            style={{
-                position: 'absolute',
-                left: positions.x,
-                top: positions.y,
-                width: positions.width,
-                height: positions.height,
-                zIndex: isSelected ? 1000 : 1,
-            }}
+            style={wrappedStyle}
             onClick={(e) => {
                 e.stopPropagation();
                 onSelect();
             }}
             onMouseDown={(e) => {
-                // 只有在点击元素本身而不是其子元素时才触发拖动
                 if (e.currentTarget === e.target) {
                     e.stopPropagation();
                     onDragStart(e);
@@ -187,7 +190,7 @@ export function ElementRenderer({
                         className="absolute -top-6 left-0 right-0 flex items-center justify-between bg-blue-500 text-white text-xs px-2 py-1 rounded-t z-50"
                         onMouseDown={(e) => e.stopPropagation()}
                     >
-                        <span>{componentDef?.name || element.type}</span>
+                        <span>{element.type.name}</span>
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -238,7 +241,7 @@ export function ElementRenderer({
                     onDragStart(e);
                 }}
             >
-                {renderContent()}
+                <ElementContent element={element}/>
             </div>
         </div>
     );

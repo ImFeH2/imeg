@@ -19,7 +19,7 @@ interface PageSettingsPanelProps {
     onClose: () => void;
 }
 
-const PageSettingsPanel = ({settings, onUpdate, onClose}: PageSettingsPanelProps) => {
+export function PageSettingsPanel({settings, onUpdate, onClose}: PageSettingsPanelProps) {
     const maxWidthOptions = [
         {value: 'none', label: 'None'},
         {value: 'max-w-3xl', label: '48rem (768px)'},
@@ -158,6 +158,6 @@ const PageSettingsPanel = ({settings, onUpdate, onClose}: PageSettingsPanelProps
             </CardContent>
         </Card>
     );
-};
+}
 
 export default PageSettingsPanel;

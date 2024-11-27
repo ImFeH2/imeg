@@ -1,22 +1,22 @@
 import {useState} from 'react';
-import {Element} from '../types';
+import {ComponentElement} from '../types';
 
 export function useEditorState() {
     const [showSidebar, setShowSidebar] = useState(true);
     const [showProperties, setShowProperties] = useState(false);
-    const [elements, setElements] = useState<Element[]>([]);
-    const [selectedElement, setSelectedElement] = useState<Element | null>(null);
-    const [history, setHistory] = useState<Element[][]>([[]]);
+    const [elements, setElements] = useState<ComponentElement[]>([]);
+    const [selectedElement, setSelectedElement] = useState<ComponentElement | null>(null);
+    const [history, setHistory] = useState<ComponentElement[][]>([[]]);
     const [historyIndex, setHistoryIndex] = useState(0);
 
-    const addToHistory = (newElements: Element[]) => {
+    const addToHistory = (newElements: ComponentElement[]) => {
         const newHistory = history.slice(0, historyIndex + 1);
         newHistory.push([...newElements]);
         setHistory(newHistory);
         setHistoryIndex(newHistory.length - 1);
     };
 
-    const resetHistory = (initialElements: Element[]) => {
+    const resetHistory = (initialElements: ComponentElement[]) => {
         setHistory([[...initialElements]]);
         setHistoryIndex(0);
     };

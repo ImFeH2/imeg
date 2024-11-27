@@ -1,13 +1,13 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {Element, PageSettings} from '../types';
+import {ComponentElement, PageSettings} from '../types';
 import {ElementRenderer} from './ElementRenderer';
 
 interface CanvasProps {
-    elements: Element[];
+    elements: ComponentElement[];
     pageSettings: PageSettings;
-    selectedElement: Element | null;
-    onElementSelect: (element: Element | null) => void;
-    onElementUpdate: (element: Element) => void;
+    selectedElement: ComponentElement | null;
+    onElementSelect: (element: ComponentElement | null) => void;
+    onElementUpdate: (element: ComponentElement) => void;
     onElementDelete: (id: number) => void;
     onDropComponent: (componentId: string, x: number, y: number) => void;
 }
@@ -85,11 +85,24 @@ const Canvas = ({
         return () => window.removeEventListener('resize', calculateInitialScale);
     }, [pageSettings]);
 
+    // Helper function to get property value
+    const getPropertyValue = (element: ComponentElement, propertyName: string) => {
+        const property = element.properties.find(p => p.name === propertyName);
+        return property ? property.value : undefined;
+    };
+
+    // Helper function to update property value
+    const updatePropertyValue = (element: ComponentElement, propertyName: string, value: any) => {
+        const newProperties = element.properties.map(p =>
+            p.name === propertyName ? {...p, value} : p
+        );
+        return {...element, properties: newProperties};
+    };
+
     // Handle canvas wheel (zoom) events
     const handleWheel = (e: React.WheelEvent) => {
         if (isMouseOverElement) return;
         if (e.ctrlKey || e.metaKey) {
-            // Keep existing zoom behavior for Ctrl/Cmd + scroll
             const delta = e.deltaY * -0.002;
             const rect = containerRef.current?.getBoundingClientRect();
             if (!rect) return;
@@ -104,7 +117,6 @@ const Canvas = ({
             setScale(newScale);
             setPosition({x: newX, y: newY});
         } else {
-            // Direct zoom for normal scroll
             const delta = e.deltaY > 0 ? -0.1 : 0.1;
             const newScale = Math.min(Math.max(0.1, scale + delta), 2);
             const rect = containerRef.current?.getBoundingClientRect();
@@ -122,7 +134,7 @@ const Canvas = ({
         }
     };
 
-    // Handle canvas click (deselect)
+    // Handle canvas drag
     const handleCanvasClick = (e: React.MouseEvent) => {
         if (e.target === containerRef.current || e.target === canvasRef.current) {
             onElementSelect(null);
@@ -130,7 +142,6 @@ const Canvas = ({
         }
     };
 
-    // Handle canvas drag
     const handleCanvasMouseDown = (e: React.MouseEvent) => {
         if (e.target === containerRef.current || e.target === canvasRef.current) {
             e.preventDefault();
@@ -169,14 +180,16 @@ const Canvas = ({
             y: deltaY / scale
         };
 
-        onElementUpdate({
-            ...element,
-            properties: {
-                ...element.properties,
-                x: element.properties.x + scaled.x,
-                y: element.properties.y + scaled.y
-            }
-        });
+        const currentX = getPropertyValue(element, 'x') || 0;
+        const currentY = getPropertyValue(element, 'y') || 0;
+
+        const updatedElement = updatePropertyValue(
+            updatePropertyValue(element, 'x', currentX + scaled.x),
+            'y',
+            currentY + scaled.y
+        );
+
+        onElementUpdate(updatedElement);
     };
 
     // Handle element resize
@@ -194,50 +207,49 @@ const Canvas = ({
             y: deltaY / scale
         };
 
-        const newProperties = {...element.properties};
+        const currentX = getPropertyValue(element, 'x') || 0;
+        const currentY = getPropertyValue(element, 'y') || 0;
+        const currentWidth = getPropertyValue(element, 'width') || 200;
+        const currentHeight = getPropertyValue(element, 'height') || 100;
+
+        let updatedElement = element;
 
         switch (corner) {
             case 'top-left':
-                newProperties.width = Math.max(50, element.properties.width - scaled.x);
-                newProperties.height = Math.max(50, element.properties.height - scaled.y);
-                newProperties.x = element.properties.x + (element.properties.width - newProperties.width);
-                newProperties.y = element.properties.y + (element.properties.height - newProperties.height);
+                const newWidthTL = Math.max(50, currentWidth - scaled.x);
+                const newHeightTL = Math.max(50, currentHeight - scaled.y);
+                updatedElement = updatePropertyValue(element, 'width', newWidthTL);
+                updatedElement = updatePropertyValue(updatedElement, 'height', newHeightTL);
+                updatedElement = updatePropertyValue(updatedElement, 'x', currentX + (currentWidth - newWidthTL));
+                updatedElement = updatePropertyValue(updatedElement, 'y', currentY + (currentHeight - newHeightTL));
                 break;
 
             case 'top-right':
-                newProperties.width = Math.max(50, element.properties.width + scaled.x);
-                newProperties.height = Math.max(50, element.properties.height - scaled.y);
-                newProperties.y = element.properties.y + (element.properties.height - newProperties.height);
+                const newWidthTR = Math.max(50, currentWidth + scaled.x);
+                const newHeightTR = Math.max(50, currentHeight - scaled.y);
+                updatedElement = updatePropertyValue(element, 'width', newWidthTR);
+                updatedElement = updatePropertyValue(updatedElement, 'height', newHeightTR);
+                updatedElement = updatePropertyValue(updatedElement, 'y', currentY + (currentHeight - newHeightTR));
                 break;
 
             case 'bottom-left':
-                newProperties.width = Math.max(50, element.properties.width - scaled.x);
-                newProperties.height = Math.max(50, element.properties.height + scaled.y);
-                newProperties.x = element.properties.x + (element.properties.width - newProperties.width);
+                const newWidthBL = Math.max(50, currentWidth - scaled.x);
+                const newHeightBL = Math.max(50, currentHeight + scaled.y);
+                updatedElement = updatePropertyValue(element, 'width', newWidthBL);
+                updatedElement = updatePropertyValue(updatedElement, 'height', newHeightBL);
+                updatedElement = updatePropertyValue(updatedElement, 'x', currentX + (currentWidth - newWidthBL));
                 break;
 
             case 'bottom-right':
-                newProperties.width = Math.max(50, element.properties.width + scaled.x);
-                newProperties.height = Math.max(50, element.properties.height + scaled.y);
+                const newWidthBR = Math.max(50, currentWidth + scaled.x);
+                const newHeightBR = Math.max(50, currentHeight + scaled.y);
+                updatedElement = updatePropertyValue(element, 'width', newWidthBR);
+                updatedElement = updatePropertyValue(updatedElement, 'height', newHeightBR);
                 break;
         }
 
-        onElementUpdate({
-            ...element,
-            properties: newProperties
-        });
+        onElementUpdate(updatedElement);
     };
-
-    const getCanvasStyle = () => ({
-        position: 'absolute' as const,
-        backgroundColor: pageSettings.bgColor,
-        transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-        transformOrigin: '0 0',
-        transition: isDragging ? 'none' : 'transform 0.1s ease',
-        width: pageSettings.responsive ? '1200px' : `${pageSettings.width}px`,
-        height: pageSettings.responsive ? '800px' : `${pageSettings.height}px`,
-        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
-    });
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -279,7 +291,16 @@ const Canvas = ({
             <div
                 ref={canvasRef}
                 className="bg-white rounded-lg"
-                style={getCanvasStyle()}
+                style={{
+                    position: 'absolute',
+                    backgroundColor: pageSettings.bgColor,
+                    transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                    transformOrigin: '0 0',
+                    transition: isDragging ? 'none' : 'transform 0.1s ease',
+                    width: pageSettings.responsive ? '1200px' : `${pageSettings.width}px`,
+                    height: pageSettings.responsive ? '800px' : `${pageSettings.height}px`,
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+                }}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
             >

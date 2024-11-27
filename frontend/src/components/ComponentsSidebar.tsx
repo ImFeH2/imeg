@@ -1,15 +1,17 @@
-import {ComponentData} from '../types';
-import {Search} from 'lucide-react';
+import {Component} from '../types';
+import {Search, Trash2} from 'lucide-react';
 import {useEffect, useMemo, useRef, useState} from 'react';
 
 interface ComponentsSidebarProps {
-    components: ComponentData[];
-    onAddElement: (componentId: string, x: number, y: number) => void;
+    components: Component[];
+    onAddElement: (componentId: number, x: number, y: number) => void;
+    onDeleteCustomComponent?: (componentId: number) => void;
 }
 
 export function ComponentsSidebar({
                                       components,
-                                      onAddElement
+                                      onAddElement,
+                                      onDeleteCustomComponent
                                   }: ComponentsSidebarProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -18,23 +20,22 @@ export function ComponentsSidebar({
     const dragStartX = useRef<number>(0);
     const scrollLeft = useRef<number>(0);
 
-    // Group components by category
     const categories = useMemo(() => {
         const groups = components.reduce((acc, component) => {
-            if (!acc[component.category]) {
-                acc[component.category] = [];
+            const category = component.category;
+            if (!acc[category]) {
+                acc[category] = [];
             }
-            acc[component.category].push(component);
+            acc[category].push(component);
             return acc;
-        }, {} as Record<string, ComponentData[]>);
+        }, {} as Record<string, Component[]>);
 
         return Object.entries(groups).map(([category, items]) => ({
-            name: category.charAt(0).toUpperCase() + category.slice(1),
+            name: category,
             items: items.sort((a, b) => a.name.localeCompare(b.name))
         }));
     }, [components]);
 
-    // Filter components
     const filteredComponents = useMemo(() => {
         let filtered = components;
 
@@ -99,8 +100,8 @@ export function ComponentsSidebar({
         }
     };
 
-    const handleDragStart = (e: React.DragEvent<HTMLButtonElement>, componentId: string) => {
-        e.dataTransfer.setData('componentId', componentId);
+    const handleDragStart = (e: React.DragEvent<HTMLButtonElement>, componentId: number) => {
+        e.dataTransfer.setData('componentId', componentId.toString());
         e.dataTransfer.effectAllowed = 'copy';
 
         // Create a custom drag image
@@ -174,21 +175,33 @@ export function ComponentsSidebar({
             <div className="flex-1 overflow-y-auto scrollbar-none">
                 <div className="grid grid-cols-2 gap-3 p-4">
                     {filteredComponents.map((component) => (
-                        <button
-                            key={component.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, component.id)}
-                            onClick={() => onAddElement(component.id, 100, 100)}
-                            className="p-3 flex flex-col items-center justify-center space-y-2 bg-white border rounded-lg hover:border-blue-500 hover:shadow-sm transition-all duration-200 cursor-move"
-                            title={component.description}
-                        >
-                            <span className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-md text-lg">
-                                {component.icon}
-                            </span>
-                            <span className="text-xs text-gray-600 text-center">
-                                {component.name}
-                            </span>
-                        </button>
+                        <div key={component.id} className="relative group">
+                            <button
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, component.id)}
+                                onClick={() => onAddElement(component.id, 100, 100)}
+                                className="w-full p-3 flex flex-col items-center justify-center space-y-2 bg-white border rounded-lg hover:border-blue-500 hover:shadow-sm transition-all duration-200 cursor-move"
+                                title={component.description}
+                            >
+                                <span className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-md text-lg">
+                                    {component.icon}
+                                </span>
+                                <span className="text-xs text-gray-600 text-center">
+                                    {component.name}
+                                </span>
+                            </button>
+
+                            {/* Delete button for custom components */}
+                            {component.category === 'custom' && onDeleteCustomComponent && (
+                                <button
+                                    onClick={() => onDeleteCustomComponent(component.id)}
+                                    className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-600"
+                                    title="Delete Custom Component"
+                                >
+                                    <Trash2 size={12}/>
+                                </button>
+                            )}
+                        </div>
                     ))}
                 </div>
 

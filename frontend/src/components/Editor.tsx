@@ -2,12 +2,13 @@ import {useEditorState} from '../hooks/useEditorState';
 import {Toolbar} from './Toolbar';
 import {ComponentsSidebar} from './ComponentsSidebar';
 import {PropertiesPanel} from './PropertiesPanel';
-import PageSettingsPanel from './PageSettingsPanel';
-import {componentsData} from '../constants/components';
-import {Element, PageSettings} from '../types';
-import {useEffect, useMemo, useState} from 'react';
-import {Trash2, XCircle} from 'lucide-react';
-import Canvas from "@/components/Canvas.tsx";
+import {PageSettingsPanel} from './PageSettingsPanel';
+import {componentsLib, createElement, generateComponentHash} from '../constants/components';
+import {Component, PageSettings} from '../types';
+import {useEffect, useState} from 'react';
+import {XCircle} from 'lucide-react';
+import Canvas from "./Canvas";
+import * as api from '@/services/api';
 
 const defaultPageSettings: PageSettings = {
     responsive: true,
@@ -23,6 +24,7 @@ export default function Editor() {
     const [error, setError] = useState<string | null>(null);
     const [showPageSettings, setShowPageSettings] = useState(false);
     const [pageSettings, setPageSettings] = useState<PageSettings>(defaultPageSettings);
+    const [customComponents, setCustomComponents] = useState<Component[]>([]);
 
     const {
         showSidebar,
@@ -43,23 +45,23 @@ export default function Editor() {
 
     const loadContent = async () => {
         try {
-            const response = await fetch('http://localhost:3000/api/page');
-            const data = await response.json();
+            setIsLoading(true);
+            const [pageData, componentsData] = await Promise.all([
+                api.getPage(),
+                api.getComponents()
+            ]);
 
-            if (!data.success) {
-                throw new Error(data.error || 'Failed to load page content');
-            }
-
-            if (data.data) {
-                setElements(data.data.elements || []);
-                setPageSettings(data.data.settings || defaultPageSettings);
-                resetHistory(data.data.elements || []);
-                setSelectedElement(null);
-                setShowProperties(false);
-            }
+            setElements(pageData.elements || []);
+            setPageSettings(pageData.settings || defaultPageSettings);
+            setCustomComponents(componentsData || []);
+            resetHistory(pageData.elements || []);
+            setSelectedElement(null);
+            setShowProperties(false);
         } catch (error) {
-            setError(error instanceof Error ? error.message : 'Failed to load page content');
+            setError(error instanceof Error ? error.message : 'Failed to load content');
             setTimeout(() => setError(null), 5000);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -67,25 +69,66 @@ export default function Editor() {
         loadContent();
     }, []);
 
-    const addElement = (type: string, x: number = 100, y: number = 100) => {
-        const componentData = componentsData.find(c => c.id === type);
-        if (!componentData) return;
+    const saveAsCustomComponent = async () => {
+        if (!selectedElement) return;
 
-        const newElement: Element = {
-            id: Date.now(),
-            type,
-            properties: {
-                x,
-                y,
-                width: 200,
-                height: 100,
-                ...Object.fromEntries(
-                    componentData.properties.map(prop => [prop.name, prop.defaultValue])
-                )
-            },
-            content: componentData.defaultContent
-        };
+        const prototype = selectedElement.type;
+        if (!prototype) return;
 
+        try {
+            const newComponent: Component = {
+                id: 0,
+                name: prototype.name,
+                icon: prototype.icon,
+                category: 'custom',
+                description: `Custom component based on ${prototype.name}`,
+                properties: selectedElement.properties,
+                canContainContent: prototype.canContainContent,
+                defaultContent: selectedElement.content,
+                tags: prototype.tags?.includes('custom') ? prototype.tags : [...(prototype.tags || []), 'custom']
+            };
+            newComponent.properties = newComponent.properties.filter(prop => !['x', 'y', 'width', 'height'].includes(prop.name));
+            newComponent.id = generateComponentHash(newComponent);
+
+            const savedComponent = await api.saveComponent(newComponent);
+            setCustomComponents(prev => [...prev, savedComponent]);
+            setError('Component saved successfully!');
+            setTimeout(() => setError(null), 3000);
+        } catch (error) {
+            setError(error instanceof Error ? error.message : 'Failed to save custom component');
+            setTimeout(() => setError(null), 5000);
+        }
+    };
+
+    const deleteCustomComponent = async (componentId: number) => {
+        try {
+            await api.deleteComponent(componentId);
+            setCustomComponents(prev => prev.filter(c => c.id !== componentId));
+            const newElements = elements.filter(el => el.type.id !== componentId);
+            if (newElements.length !== elements.length) {
+                setElements(newElements);
+                addToHistory(newElements);
+            }
+        } catch (error) {
+            setError(error instanceof Error ? error.message : 'Failed to delete component');
+            setTimeout(() => setError(null), 5000);
+        }
+    };
+
+    const addElement = (typeId: number, x: number = 100, y: number = 100) => {
+        const prototype = [...componentsLib, ...customComponents].find(c => c.id === typeId);
+        if (!prototype) {
+            console.warn('Component prototype not found:', typeId);
+            return;
+        }
+
+        const newElement = createElement(prototype, {x, y});
+        if (!newElement) {
+            console.warn('Failed to create element');
+            return;
+        }
+
+        console.log('Created new element:', newElement); // Debug log
         const newElements = [...elements, newElement];
         setElements(newElements);
         addToHistory(newElements);
@@ -93,12 +136,18 @@ export default function Editor() {
         setShowProperties(true);
     };
 
-    const updateElementProps = (id: number, newProps: Record<string, any>) => {
-        const newElements = elements.map(el =>
-            el.id === id
-                ? {...el, properties: {...el.properties, ...newProps}}
-                : el
-        );
+    const updateElementProps = (id: number, updates: Array<{ name: string, value: any }>) => {
+        const newElements = elements.map(el => {
+            if (el.id !== id) return el;
+
+            const newProperties = el.properties.map(prop => {
+                const update = updates.find(u => u.name === prop.name);
+                return update ? {...prop, value: update.value} : prop;
+            });
+
+            return {...el, properties: newProperties};
+        });
+
         setElements(newElements);
         setSelectedElement(newElements.find(el => el.id === id) || null);
         addToHistory(newElements);
@@ -118,29 +167,11 @@ export default function Editor() {
         setIsSaving(true);
         setError(null);
         try {
-            const response = await fetch('http://localhost:3000/api/page', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    elements: elements.map(el => ({
-                        ...el,
-                        id: Number(el.id)
-                    })),
-                    settings: pageSettings
-                })
+            await api.savePage({
+                elements,
+                settings: pageSettings
             });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText || 'Failed to save page');
-            }
-
-            const data = await response.json();
-            if (!data.success) {
-                throw new Error(data.error || 'Failed to save page');
-            }
+            setError('Page saved successfully!');
         } catch (error) {
             setError(error instanceof Error ? error.message : 'Failed to save page');
         } finally {
@@ -154,9 +185,7 @@ export default function Editor() {
     };
 
     const handleLoad = async () => {
-        setIsLoading(true);
         await loadContent();
-        setIsLoading(false);
     };
 
     return (
@@ -176,16 +205,24 @@ export default function Editor() {
                 onLoad={handleLoad}
                 isSaving={isSaving}
                 isLoading={isLoading}
+                onSaveAsComponent={selectedElement ? saveAsCustomComponent : undefined}
             />
 
+            {/* Error/Success Notification */}
             {error && (
-                <div className="fixed top-14 right-4 w-96 bg-red-50 border-l-4 border-red-500 p-4 rounded shadow-lg z-50">
+                <div className={`fixed top-14 right-4 w-96 ${
+                    error.includes('successfully') ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500'
+                } border-l-4 p-4 rounded shadow-lg z-50`}>
                     <div className="flex items-start">
                         <div className="flex-shrink-0">
-                            <XCircle className="h-5 w-5 text-red-500"/>
+                            <XCircle className={`h-5 w-5 ${
+                                error.includes('successfully') ? 'text-green-500' : 'text-red-500'
+                            }`}/>
                         </div>
                         <div className="ml-3">
-                            <p className="text-sm text-red-700">{error}</p>
+                            <p className={`text-sm ${
+                                error.includes('successfully') ? 'text-green-700' : 'text-red-700'
+                            }`}>{error}</p>
                         </div>
                     </div>
                 </div>
@@ -203,8 +240,9 @@ export default function Editor() {
             <div className="flex flex-1 pt-12">
                 {showSidebar && (
                     <ComponentsSidebar
-                        components={componentsData}
+                        components={[...componentsLib, ...customComponents]}
                         onAddElement={addElement}
+                        onDeleteCustomComponent={deleteCustomComponent}
                     />
                 )}
 
@@ -226,7 +264,9 @@ export default function Editor() {
                             addToHistory(newElements);
                         }}
                         onElementDelete={deleteElement}
-                        onDropComponent={addElement}
+                        onDropComponent={(componentId, x, y) => {
+                            addElement(parseInt(componentId, 10), x, y);
+                        }}
                     />
                 </div>
 
@@ -245,230 +285,6 @@ export default function Editor() {
                         onClose={() => setShowPageSettings(false)}
                     />
                 )}
-            </div>
-        </div>
-    );
-}
-
-interface ElementRendererProps {
-    element: Element;
-    isSelected: boolean;
-    onSelect: () => void;
-    onDelete: () => void;
-    onMouseDown: (e: React.MouseEvent, corner: string) => void;
-    onDragStart: (e: React.MouseEvent) => void;
-}
-
-export function ElementRenderer({
-                                    element,
-                                    isSelected,
-                                    onSelect,
-                                    onDelete,
-                                    onMouseDown,
-                                    onDragStart
-                                }: ElementRendererProps) {
-    const componentDef = componentsData.find(c => c.id === element.type);
-
-    const elementStyle = useMemo(() => {
-        const style: React.CSSProperties = {
-            position: 'absolute',
-            left: element.properties.x,
-            top: element.properties.y,
-            width: element.properties.width,
-            height: element.properties.height,
-            userSelect: 'none',
-            WebkitUserSelect: 'none',
-            MozUserSelect: 'none',
-        };
-
-        // Add all style-related properties
-        if (componentDef) {
-            for (const prop of componentDef.properties) {
-                if (['color', 'backgroundColor', 'fontSize', 'fontWeight', 'lineHeight',
-                    'textAlign', 'padding', 'margin', 'borderRadius', 'borderColor',
-                    'borderWidth', 'opacity', 'display', 'flexDirection'].includes(prop.name)) {
-                    style[prop.name as keyof React.CSSProperties] = element.properties[prop.name];
-                }
-            }
-        }
-
-        return style;
-    }, [element.properties, element.type]);
-
-    const renderContent = () => {
-        if (!componentDef) return null;
-
-        switch (element.type) {
-            case 'text':
-            case 'paragraph':
-            case 'heading1':
-            case 'heading2': {
-                return (
-                    <div style={elementStyle}>
-                        {element.content.map((item, index) => (
-                            item.type === 'text' ? (
-                                <span key={index}>{item.content}</span>
-                            ) : null // We'll handle nested elements later
-                        ))}
-                    </div>
-                );
-            }
-
-            case 'button': {
-                return (
-                    <button
-                        style={elementStyle}
-                        disabled={element.properties.disabled}
-                    >
-                        {element.properties.text}
-                    </button>
-                );
-            }
-
-            case 'link': {
-                return (
-                    <a
-                        href={element.properties.href}
-                        style={elementStyle}
-                    >
-                        {element.properties.text}
-                    </a>
-                );
-            }
-
-            case 'image': {
-                return (
-                    <img
-                        src={element.properties.src}
-                        alt={element.properties.alt}
-                        style={{
-                            ...elementStyle,
-                            objectFit: element.properties.objectFit as 'cover' | 'contain'
-                        }}
-                        draggable={false}
-                    />
-                );
-            }
-
-            case 'input': {
-                return (
-                    <input
-                        type={element.properties.type}
-                        placeholder={element.properties.placeholder}
-                        style={elementStyle}
-                        readOnly
-                    />
-                );
-            }
-
-            case 'textarea': {
-                return (
-                    <textarea
-                        placeholder={element.properties.placeholder}
-                        rows={element.properties.rows}
-                        style={elementStyle}
-                        readOnly
-                    />
-                );
-            }
-
-            case 'div': {
-                return (
-                    <div style={elementStyle}>
-                        {element.content.map((item, index) => (
-                            item.type === 'text' ? (
-                                <span key={index}>{item.content}</span>
-                            ) : null // We'll handle nested elements later
-                        ))}
-                    </div>
-                );
-            }
-
-            default:
-                return <div style={elementStyle}>Unknown Component</div>;
-        }
-    };
-
-    return (
-        <div
-            className={`absolute border border-gray-200 ${
-                isSelected ? 'ring-2 ring-blue-500' : ''
-            }`}
-            onClick={(e) => {
-                e.preventDefault();
-                onSelect();
-            }}
-            onMouseDown={(e) => e.preventDefault()}
-            style={{
-                left: element.properties.x,
-                top: element.properties.y,
-                width: element.properties.width,
-                height: element.properties.height,
-            }}
-        >
-            {isSelected && (
-                <div
-                    className="absolute -top-6 left-0 right-0 flex items-center justify-between bg-blue-500 text-white text-xs px-2 py-1 rounded-t"
-                    onMouseDown={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                    }}
-                >
-                    <span>{componentDef?.name || element.type}</span>
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            onDelete();
-                        }}
-                        className="hover:bg-blue-600 p-1 rounded"
-                    >
-                        <Trash2 size={12}/>
-                    </button>
-                </div>
-            )}
-
-            {isSelected && (
-                <>
-                    <div
-                        className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 cursor-nw-resize"
-                        onMouseDown={(e) => {
-                            e.preventDefault();
-                            onMouseDown(e, 'top-left');
-                        }}
-                    />
-                    <div
-                        className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 cursor-ne-resize"
-                        onMouseDown={(e) => {
-                            e.preventDefault();
-                            onMouseDown(e, 'top-right');
-                        }}
-                    />
-                    <div
-                        className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 cursor-sw-resize"
-                        onMouseDown={(e) => {
-                            e.preventDefault();
-                            onMouseDown(e, 'bottom-left');
-                        }}
-                    />
-                    <div
-                        className="absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 cursor-se-resize"
-                        onMouseDown={(e) => {
-                            e.preventDefault();
-                            onMouseDown(e, 'bottom-right');
-                        }}
-                    />
-                </>
-            )}
-
-            <div
-                className="w-full h-full cursor-move"
-                onMouseDown={(e) => {
-                    e.preventDefault();
-                    onDragStart(e);
-                }}
-            >
-                {renderContent()}
             </div>
         </div>
     );
