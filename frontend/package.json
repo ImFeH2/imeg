@@ -29,6 +29,7 @@
     },
     "devDependencies": {
         "@shadcn/ui": "^0.0.4",
+        "@types/crypto-js": "^4.2.2",
         "@types/lodash": "^4.17.13",
         "@types/node": "^22.9.3",
         "@types/react": "^18.2.0",
