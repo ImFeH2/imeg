@@ -1,6 +1,6 @@
 import {Trash2} from 'lucide-react';
 import {ComponentElement, Content} from '../types';
-import React, {useMemo} from 'react';
+import React, {useMemo, useState} from 'react';
 
 interface ElementRendererProps {
     element: ComponentElement;
@@ -9,6 +9,7 @@ interface ElementRendererProps {
     onDelete: () => void;
     onMouseDown: (e: React.MouseEvent, corner: string) => void;
     onDragStart: (e: React.MouseEvent) => void;
+    onElementUpdate: (element: ComponentElement) => void;
 }
 
 // Helper function to get property value
@@ -22,18 +23,34 @@ function getPropertyValue(element: ComponentElement, propertyName: string) {
 }
 
 // Recursive content renderer
-function ContentRenderer({content, style}: { content: Content, style: React.CSSProperties }) {
+function ContentRenderer({content, style, onDrop}: {
+    content: Content,
+    style: React.CSSProperties,
+    onDrop?: (componentId: string) => void
+}) {
     if (content.type === 'text') {
-        // Text content is always wrapped in a span to inherit parent styles
         return <span style={style}>{content.content}</span>;
     } else {
-        // For element content, recursively render the component
-        return <ElementContent element={content.content} parentStyle={style}/>;
+        return <ElementContent
+            element={content.content}
+            parentStyle={style}
+            onDrop={onDrop}
+        />;
     }
 }
 
 // Component content renderer
-function ElementContent({element, parentStyle}: { element: ComponentElement, parentStyle?: React.CSSProperties }) {
+function ElementContent({
+                            element,
+                            parentStyle,
+                            onDrop
+                        }: {
+    element: ComponentElement,
+    parentStyle?: React.CSSProperties,
+    onDrop?: (componentId: string) => void
+}) {
+    const [isDropTarget, setIsDropTarget] = useState(false);
+
     const style = useMemo(() => {
         const elementStyle: React.CSSProperties = {
             ...parentStyle,
@@ -49,36 +66,86 @@ function ElementContent({element, parentStyle}: { element: ComponentElement, par
             textAlign: getPropertyValue(element, 'textAlign'),
             display: getPropertyValue(element, 'display'),
             flexDirection: getPropertyValue(element, 'flexDirection'),
+            outline: isDropTarget ? '2px dashed #3b82f6' : 'none',
+            outlineOffset: isDropTarget ? '2px' : '0',
         };
         return elementStyle;
-    }, [element, parentStyle]);
+    }, [element, parentStyle, isDropTarget]);
+
+    const handleDragOver = (e: React.DragEvent) => {
+        if (!element.type.canContainContent) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDropTarget(true);
+        e.dataTransfer.dropEffect = 'copy';
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDropTarget(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDropTarget(false);
+
+        if (!element.type.canContainContent) return;
+
+        const componentId = e.dataTransfer.getData('componentId');
+        if (componentId && onDrop) {
+            onDrop(componentId);
+        }
+    };
+
+    const containerProps = element.type.canContainContent ? {
+        onDragOver: handleDragOver,
+        onDragLeave: handleDragLeave,
+        onDrop: handleDrop
+    } : {};
 
     // Render based on component type
     switch (element.type.name) {
         case 'Text Block':
         case 'Paragraph':
             return (
-                <p style={style}>
+                <p style={style} {...containerProps}>
                     {element.content.map((content, index) => (
-                        <ContentRenderer key={index} content={content} style={style}/>
+                        <ContentRenderer
+                            key={index}
+                            content={content}
+                            style={style}
+                            onDrop={onDrop}
+                        />
                     ))}
                 </p>
             );
 
         case 'Heading 1':
             return (
-                <h1 style={style}>
+                <h1 style={style} {...containerProps}>
                     {element.content.map((content, index) => (
-                        <ContentRenderer key={index} content={content} style={style}/>
+                        <ContentRenderer
+                            key={index}
+                            content={content}
+                            style={style}
+                            onDrop={onDrop}
+                        />
                     ))}
                 </h1>
             );
 
         case 'Heading 2':
             return (
-                <h2 style={style}>
+                <h2 style={style} {...containerProps}>
                     {element.content.map((content, index) => (
-                        <ContentRenderer key={index} content={content} style={style}/>
+                        <ContentRenderer
+                            key={index}
+                            content={content}
+                            style={style}
+                            onDrop={onDrop}
+                        />
                     ))}
                 </h2>
             );
@@ -88,6 +155,7 @@ function ElementContent({element, parentStyle}: { element: ComponentElement, par
                 <button
                     style={style}
                     disabled={true}
+                    {...containerProps}
                 >
                     {getPropertyValue(element, 'text')}
                 </button>
@@ -98,6 +166,7 @@ function ElementContent({element, parentStyle}: { element: ComponentElement, par
                 <a
                     href={getPropertyValue(element, 'href')}
                     style={style}
+                    {...containerProps}
                 >
                     {getPropertyValue(element, 'text')}
                 </a>
@@ -113,6 +182,7 @@ function ElementContent({element, parentStyle}: { element: ComponentElement, par
                         objectFit: getPropertyValue(element, 'objectFit') as 'cover' | 'contain'
                     }}
                     draggable={false}
+                    {...containerProps}
                 />
             );
 
@@ -123,6 +193,7 @@ function ElementContent({element, parentStyle}: { element: ComponentElement, par
                     placeholder={getPropertyValue(element, 'placeholder')}
                     style={style}
                     disabled={true}
+                    {...containerProps}
                 />
             );
 
@@ -132,21 +203,27 @@ function ElementContent({element, parentStyle}: { element: ComponentElement, par
                     placeholder={getPropertyValue(element, 'placeholder')}
                     style={style}
                     disabled={true}
+                    {...containerProps}
                 />
             );
 
         case 'Container':
             return (
-                <div style={style}>
+                <div style={style} {...containerProps}>
                     {element.content.map((content, index) => (
-                        <ContentRenderer key={index} content={content} style={style}/>
+                        <ContentRenderer
+                            key={index}
+                            content={content}
+                            style={style}
+                            onDrop={onDrop}
+                        />
                     ))}
                 </div>
             );
 
         default:
             return (
-                <div style={style}>Unknown Component</div>
+                <div style={style} {...containerProps}>Unknown Component</div>
             );
     }
 }
@@ -157,7 +234,8 @@ export function ElementRenderer({
                                     onSelect,
                                     onDelete,
                                     onMouseDown,
-                                    onDragStart
+                                    onDragStart,
+                                    onElementUpdate
                                 }: ElementRendererProps) {
     const wrappedStyle: React.CSSProperties = {
         position: 'absolute',
@@ -166,6 +244,31 @@ export function ElementRenderer({
         width: getPropertyValue(element, 'width'),
         height: getPropertyValue(element, 'height'),
         zIndex: isSelected ? 1000 : 1,
+    };
+
+    const handleContentDrop = (componentId: string) => {
+        if (!element.type.canContainContent) return;
+
+        const contentElement = {
+            type: 'element' as const,
+            content: {
+                ...element,
+                content: [...element.content, {
+                    type: 'element' as const,
+                    content: {
+                        id: parseInt(componentId),
+                        properties: [], // This will be populated by the parent component
+                        content: [],
+                        type: {} as any // This will be populated by the parent component
+                    }
+                }]
+            }
+        };
+
+        onElementUpdate({
+            ...element,
+            content: [...element.content, contentElement]
+        });
     };
 
     return (
@@ -185,7 +288,6 @@ export function ElementRenderer({
         >
             {isSelected && (
                 <>
-                    {/* Header with delete button */}
                     <div
                         className="absolute -top-6 left-0 right-0 flex items-center justify-between bg-blue-500 text-white text-xs px-2 py-1 rounded-t z-50"
                         onMouseDown={(e) => e.stopPropagation()}
@@ -202,7 +304,6 @@ export function ElementRenderer({
                         </button>
                     </div>
 
-                    {/* Resize handles */}
                     <div
                         className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 cursor-nw-resize z-50"
                         onMouseDown={(e) => {
@@ -241,7 +342,10 @@ export function ElementRenderer({
                     onDragStart(e);
                 }}
             >
-                <ElementContent element={element}/>
+                <ElementContent
+                    element={element}
+                    onDrop={handleContentDrop}
+                />
             </div>
         </div>
     );

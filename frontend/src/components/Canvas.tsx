@@ -311,6 +311,7 @@ const Canvas = ({
                         isSelected={selectedElement?.id === element.id}
                         onSelect={() => onElementSelect(element)}
                         onDelete={() => onElementDelete(element.id)}
+                        onElementUpdate={(updatedElement) => onElementUpdate(updatedElement)}
                         onMouseDown={(e, corner) => {
                             setIsMouseOverElement(true);
                             const startX = e.clientX;
