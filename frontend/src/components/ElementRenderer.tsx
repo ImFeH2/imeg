@@ -1,6 +1,7 @@
 import {Trash2} from 'lucide-react';
 import {ComponentElement, Content} from '../types';
 import React, {useMemo, useState} from 'react';
+import {componentsLib, createElement} from "@/constants/components.tsx";
 
 interface ElementRendererProps {
     element: ComponentElement;
@@ -12,7 +13,6 @@ interface ElementRendererProps {
     onElementUpdate: (element: ComponentElement) => void;
 }
 
-// Helper function to get property value
 function getPropertyValue(element: ComponentElement, propertyName: string) {
     if (!element?.properties || !Array.isArray(element.properties)) {
         console.warn('Invalid properties structure:', element);
@@ -22,14 +22,13 @@ function getPropertyValue(element: ComponentElement, propertyName: string) {
     return property ? property.value : undefined;
 }
 
-// Recursive content renderer
 function ContentRenderer({content, style, onDrop}: {
     content: Content,
     style: React.CSSProperties,
-    onDrop?: (componentId: string) => void
+    onDrop?: (componentId: number) => void
 }) {
     if (content.type === 'text') {
-        return <span style={style}>{content.content}</span>;
+        return content.content;
     } else {
         return <ElementContent
             element={content.content}
@@ -39,7 +38,6 @@ function ContentRenderer({content, style, onDrop}: {
     }
 }
 
-// Component content renderer
 function ElementContent({
                             element,
                             parentStyle,
@@ -47,7 +45,7 @@ function ElementContent({
                         }: {
     element: ComponentElement,
     parentStyle?: React.CSSProperties,
-    onDrop?: (componentId: string) => void
+    onDrop?: (componentId: number) => void
 }) {
     const [isDropTarget, setIsDropTarget] = useState(false);
 
@@ -95,7 +93,7 @@ function ElementContent({
 
         const componentId = e.dataTransfer.getData('componentId');
         if (componentId && onDrop) {
-            onDrop(componentId);
+            onDrop(parseInt(componentId));
         }
     };
 
@@ -246,28 +244,20 @@ export function ElementRenderer({
         zIndex: isSelected ? 1000 : 1,
     };
 
-    const handleContentDrop = (componentId: string) => {
+    const handleContentDrop = (componentId: number) => {
         if (!element.type.canContainContent) return;
 
-        const contentElement = {
-            type: 'element' as const,
-            content: {
-                ...element,
-                content: [...element.content, {
-                    type: 'element' as const,
-                    content: {
-                        id: parseInt(componentId),
-                        properties: [], // This will be populated by the parent component
-                        content: [],
-                        type: {} as any // This will be populated by the parent component
-                    }
-                }]
-            }
-        };
+        const component = componentsLib.find(c => c.id === componentId);
+        if (!component) return;
+
+        const newContent: Content[] = [...element.content, {
+            type: 'element',
+            content: createElement(component)
+        }];
 
         onElementUpdate({
             ...element,
-            content: [...element.content, contentElement]
+            content: newContent
         });
     };
 

@@ -100,14 +100,13 @@ export function addComponent(component: Component) {
 // Function to create a ComponentElement instance
 export function createElement(
     prototype: Component,
-    position: { x: number; y: number },
-    size?: { width: number; height: number }
+    position: { x: number; y: number } = {x: 0, y: 0},
+    size: { width: number; height: number } = {width: 200, height: 100}
 ): ComponentElement {
     const elementId = prototype.id + Math.floor(Math.random() * 1000000);
     const hashInput = `${elementId}-${Date.now()}`;
     const finalId = parseInt(CryptoJS.SHA256(hashInput).toString().substring(0, 8), 16);
 
-    // Create new properties array combining base properties and prototype properties
     const properties = [
         {
             name: 'x',
@@ -128,14 +127,14 @@ export function createElement(
             label: 'Width',
             type: 'number' as const,
             category: 'layout' as const,
-            value: size?.width || 200
+            value: size.width
         },
         {
             name: 'height',
             label: 'Height',
             type: 'number' as const,
             category: 'layout' as const,
-            value: size?.height || 100
+            value: size.height
         },
         ...prototype.properties.map(prop => ({
             ...prop,
