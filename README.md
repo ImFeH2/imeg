@@ -70,11 +70,10 @@ cargo run
 
 ## Development Plan
 
-- [ ] Enhance editor functionality
-    - [ ] More preset components
-    - [ ] Custom components
-- [ ] Design data structures
-- [ ] Develop backend API
+- [x] Enhance editor functionality
+    - [x] More preset components
+    - [x] Custom components
+- [x] Develop backend API
 
 ## Contributing
 
